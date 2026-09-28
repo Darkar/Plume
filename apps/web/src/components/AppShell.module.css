@@ -1,0 +1,261 @@
+.shell {
+  display: grid;
+  grid-template-columns: 276px minmax(0, 1fr);
+  height: 100%;
+  background: var(--color-bg);
+}
+
+.sidebar {
+  position: relative;
+  padding: 22px 16px 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.brand {
+  padding: 0 8px 18px;
+}
+
+.newMessage {
+  width: 100%;
+  min-height: 46px;
+  margin: 0 0 16px;
+  border-radius: var(--radius-lg);
+}
+
+.spacer {
+  flex: 1;
+  min-height: 16px;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 10px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.accountButton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.accountButton:hover .accountName {
+  text-decoration: underline;
+}
+
+.account > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.accountText {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.3;
+}
+
+.accountName {
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountEmail {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountSettings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  flex: none;
+}
+
+.accountSettings:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+/* Navigation des paramètres */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+  align-self: flex-start;
+}
+
+.back:hover {
+  background: var(--color-surface-hover);
+}
+
+.settingsTitle {
+  font-size: 1.6rem;
+  margin: 26px 10px 22px;
+  line-height: 1;
+}
+
+.settingsNav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.settingsLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.settingsLink:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+/* Les ancres de la page générale sont actives selon la section, pas seulement le chemin. */
+.settingsLink[data-current='true'],
+.settingsLink[data-status='active']:not([href*='#']) {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.logout {
+  justify-content: flex-start;
+  padding: 0 12px;
+}
+
+.content {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 12px 12px 0;
+}
+
+.content:focus {
+  outline: none;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+
+.skip:focus {
+  left: 16px;
+  top: 16px;
+  z-index: 10;
+  background: var(--color-surface);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+/* Barre supérieure et tiroir : écrans étroits uniquement. */
+.mobileBar,
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .mobileBar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .mobileBrand {
+    flex: 1;
+  }
+
+  .mobileBrand > span {
+    font-size: 1.5rem;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: min(300px, 86vw);
+    padding-top: 16px;
+    background: var(--color-bg);
+    border-right: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-102%);
+    /* Fermé : masqué aussi pour les technologies d'assistance (en plus de « inert »), une fois
+       l'animation terminée. */
+    visibility: hidden;
+    transition:
+      transform 180ms ease,
+      visibility 0s linear 180ms;
+  }
+
+  .shell[data-drawer-open] .sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform 180ms ease;
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgb(0 0 0 / 45%);
+  }
+
+  .content {
+    padding: 0 8px 8px;
+  }
+
+  .settingsTitle {
+    font-size: 1.45rem;
+    margin: 16px 10px;
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@plume/testing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@testcontainers/postgresql": "^12.1.0",
+    "@testcontainers/redis": "^12.1.0",
+    "@types/nodemailer": "^8.0.2",
+    "imapflow": "^2.0.6",
+    "nodemailer": "^10.0.10",
+    "testcontainers": "^12.1.0"
+  }
+}

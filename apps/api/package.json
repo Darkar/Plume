@@ -1,0 +1,43 @@
+{
+  "name": "@plume/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "openapi": "tsx src/cli.ts openapi > ../../docs/openapi.json"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/helmet": "^13.1.1",
+    "@fastify/rate-limit": "^11.2.0",
+    "@plume/config": "workspace:*",
+    "@plume/crypto": "workspace:*",
+    "@plume/db": "workspace:*",
+    "@plume/mail": "workspace:*",
+    "@plume/rules": "workspace:*",
+    "@plume/shared": "workspace:*",
+    "bullmq": "^5.81.5",
+    "drizzle-orm": "^0.45.3",
+    "fastify": "^5.12.5",
+    "fastify-plugin": "^6.0.0",
+    "ioredis": "^5.11.1",
+    "pino": "^10.3.1",
+    "sharp": "^0.35.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@plume/testing": "workspace:*",
+    "@types/jsdom": "^30.0.0",
+    "imapflow": "^2.0.6",
+    "jsdom": "^30.1.1",
+    "tsup": "^8.5.1",
+    "yaml": "^2.9.1"
+  }
+}

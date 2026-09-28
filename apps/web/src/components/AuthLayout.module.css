@@ -1,0 +1,205 @@
+.page {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-bg);
+}
+
+.column {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 36px 48px 20px;
+  min-height: calc(100vh - 24px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+
+/* Même dessin que le favicon, dans la couleur d'accent choisie (aplat des boutons : plume
+   blanche lisible dans les deux thèmes). */
+.logoTile {
+  fill: var(--color-accent, #4f46e5);
+}
+
+.logoMark {
+  fill: var(--color-accent-contrast, #ffffff);
+}
+
+.brandName {
+  font-size: 1.85rem;
+  line-height: 1;
+}
+
+.main {
+  display: grid;
+  place-items: center;
+  padding: 32px 0;
+}
+
+.panel {
+  width: min(396px, 100%);
+  display: grid;
+  gap: 24px;
+}
+
+.title {
+  margin: 0;
+  font-size: 2.1rem;
+  line-height: 1.15;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+
+.form {
+  display: grid;
+  gap: 18px;
+}
+
+.form > button[type='submit'] {
+  min-height: 48px;
+  margin-top: 4px;
+}
+
+.footer {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* Panneau décoratif */
+.showcase {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 88px 56px 64px;
+}
+
+.cards {
+  position: relative;
+  display: grid;
+  gap: 20px;
+}
+
+.sample {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  max-width: 460px;
+}
+
+.sample1 {
+  transform: rotate(-1.5deg);
+}
+
+.sample2 {
+  margin-left: 96px;
+  transform: rotate(1deg);
+}
+
+.sample3 {
+  margin-left: 32px;
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+.sampleText {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.sampleText strong {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.sampleText span {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sample time {
+  align-self: flex-start;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--color-inverse);
+  color: var(--color-inverse-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tagline {
+  display: grid;
+  gap: 18px;
+  max-width: 460px;
+}
+
+.taglineTitle {
+  margin: 0;
+  font-size: 2.5rem;
+  line-height: 1.12;
+}
+
+.taglineTitle em {
+  font-style: normal;
+  color: var(--color-text-muted);
+}
+
+.taglineText {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+@media (max-width: 960px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .showcase {
+    display: none;
+  }
+
+  .column {
+    padding: 24px 16px 16px;
+  }
+
+  .title {
+    font-size: 1.8rem;
+  }
+}

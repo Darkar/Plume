@@ -1,0 +1,167 @@
+.help {
+  color: var(--color-text-muted);
+  margin: 0 0 16px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+}
+
+.card[data-disabled] h2 {
+  color: var(--color-text-muted);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardHeader h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.switch input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--color-accent);
+}
+
+.stats {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  margin: 8px 0;
+}
+
+.editor {
+  display: grid;
+  gap: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+.editor h2 {
+  margin: 0;
+}
+
+.subTitle {
+  margin: 8px 0 0;
+  font-size: 1rem;
+}
+
+.section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row select,
+.row input,
+.row textarea,
+.section select {
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.row input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.row textarea {
+  padding: 8px 10px;
+}
+
+.row button {
+  padding: 0 12px;
+  min-height: 40px;
+}
+
+.autoReply {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.dryRun {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  font-size: 0.9rem;
+}
+
+.dryRun p {
+  margin: 0 0 6px;
+}
+
+.dryRun ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.card[draggable='true'] {
+  cursor: grab;
+}
+
+.card[data-drop-target] {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: 2px;
+}
+
+.handle {
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.cardHeader h2 {
+  flex: 1;
+}

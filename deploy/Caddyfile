@@ -1,0 +1,92 @@
+# Caddy : terminaison TLS, en-têtes de sécurité, SPA statique et proxy vers l'API.
+# PLUME_SITE_ADDRESS : nom de domaine public (ex. mail.exemple.fr). Par défaut « localhost »
+# (certificat émis par l'autorité locale de Caddy, pour les essais). Derrière un reverse proxy
+# existant, « :8080 » : HTTP simple, le TLS étant assuré en amont
+# (deploy/docker-compose.behind-proxy.yml, D-062).
+# PLUME_TRUSTED_PROXIES : plages dont les en-têtes X-Forwarded-* sont conservés (adresse réelle
+# du client, pour les limites de débit). Vide par défaut : ces en-têtes sont alors remplacés.
+{
+	admin off
+	skip_install_trust
+	# Certains clients (ex. Java/ZAP) n'envoient pas de SNI pour « localhost ».
+	default_sni {$PLUME_SITE_ADDRESS:localhost}
+	servers {
+		# Pas de protocole HTTP/1.0 ni de méthodes exotiques côté client.
+		protocols h1 h2 h3
+		trusted_proxies static {$PLUME_TRUSTED_PROXIES}
+	}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Cross-Origin-Opener-Policy "same-origin"
+		# « ? » : valeur par défaut, sans écraser celle posée par l'API (corps des mails servi à
+		# l'iframe isolée : SAMEORIGIN ; images du proxy : cross-origin).
+		?X-Frame-Options "DENY"
+		?Cross-Origin-Resource-Policy "same-origin"
+		Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+		-Server
+		-X-Powered-By
+	}
+}
+
+{$PLUME_SITE_ADDRESS:localhost} {
+	import security_headers
+
+	request_body {
+		max_size 60MB
+	}
+
+	# L'API applique sa propre CSP (« default-src 'none' »).
+	handle /api/* {
+		reverse_proxy api:3000 {
+			header_up -X-Forwarded-Host
+		}
+	}
+
+	# Sondes internes : jamais exposées publiquement.
+	handle /healthz {
+		respond 404
+	}
+	handle /readyz {
+		respond 404
+	}
+
+	# Visionneuse PDF isolée : chargée dans une iframe « sandbox="allow-scripts" » sans
+	# « allow-same-origin » (origine opaque). Ses propres ressources sont demandées depuis cette
+	# origine opaque, d'où « Cross-Origin-Resource-Policy: cross-origin » sur ce seul chemin.
+	handle /viewer/* {
+		encode zstd gzip
+		root * /srv/web
+		header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src blob: data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'; sandbox allow-scripts"
+		header X-Frame-Options "SAMEORIGIN"
+		header Cross-Origin-Resource-Policy "cross-origin"
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		# Compression limitée aux fichiers statiques (le flux SSE de l'API ne doit pas être mis en
+		# tampon).
+		encode zstd gzip
+		root * /srv/web
+		# Le script en ligne de index.html (thème appliqué avant le premier rendu) est autorisé par son
+		# empreinte, vérifiée par apps/web/test/csp-hash.test.ts.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-7YgDf10agsGF3ZPIsCXwHRgqOODAKQyHe1U/AM0KZt4='; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'none'; object-src 'none'; frame-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests"
+		@immutable path /assets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		@html path / /index.html
+		header @html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Sonde de santé interne du conteneur (non publiée).
+:8081 {
+	bind 127.0.0.1
+	respond /caddy-health 200
+}

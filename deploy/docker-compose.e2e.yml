@@ -1,0 +1,35 @@
+# Pile de test de bout en bout : ajoute un serveur GreenMail et une configuration dédiée.
+# Usage : docker compose -f compose.yaml -f deploy/docker-compose.e2e.yml up -d --build --wait
+# Les chemins sont relatifs au premier fichier (racine du dépôt).
+services:
+  api:
+    volumes:
+      - ./config/plume.e2e.yaml:/etc/plume/plume.yaml:ro
+    depends_on:
+      greenmail: { condition: service_healthy }
+  worker:
+    volumes:
+      - ./config/plume.e2e.yaml:/etc/plume/plume.yaml:ro
+  admin:
+    volumes:
+      - ./config/plume.e2e.yaml:/etc/plume/plume.yaml:ro
+
+  greenmail:
+    image: greenmail/standalone:2.1.5
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users.login=email
+        -Dgreenmail.users=sacha:e2e-password@exemple.com,alice:e2e-password-alice@exemple.com,bob:e2e-password-bob@exemple.com,carol:e2e-password-carol@exemple.com,dave:e2e-password-dave@exemple.com
+    networks: [egress]
+    # Exposé uniquement en local pour que les tests déposent des messages (IMAPS).
+    ports: ['127.0.0.1:3993:3993']
+    user: '999:999'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      test: ['CMD', 'bash', '-c', 'echo > /dev/tcp/127.0.0.1/3993']
+      interval: 5s
+      timeout: 5s
+      retries: 30

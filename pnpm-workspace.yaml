@@ -1,0 +1,20 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'e2e'
+
+# Seules ces dépendances peuvent exécuter des scripts d'installation (compilation native).
+onlyBuiltDependencies:
+  - argon2
+  - esbuild
+  - re2
+
+# Protège contre les paquets publiés il y a moins de 24 h (attaques de la chaîne d'approvisionnement).
+minimumReleaseAge: 1440
+
+# Requis par « pnpm deploy » (images Docker) pour réutiliser le fichier de verrouillage partagé.
+injectWorkspacePackages: true
+
+# Correctifs de sécurité imposés aux dépendances transitives (voir docs/DECISIONS.md).
+overrides:
+  esbuild: ^0.28.1

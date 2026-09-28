@@ -1,0 +1,5 @@
+# Vulnérabilités ignorées par OSV-Scanner. Chaque entrée doit être justifiée et datée.
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2026-12-31
+# reason = "…"

@@ -1,0 +1,2 @@
+# Surcharges des règles ZAP (id	action	commentaire). Par défaut, toutes les règles restent actives.
+# Ne jamais ignorer une règle sans justification dans docs/DECISIONS.md.

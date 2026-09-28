@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Aperçu PDF</title>
+    <link rel="stylesheet" href="/viewer/pdf.css" />
+  </head>
+  <body>
+    <header id="toolbar" role="toolbar" hidden>
+      <button id="prev" type="button">‹</button>
+      <div id="goto">
+        <input id="page" type="number" min="1" value="1" inputmode="numeric" />
+        <span id="of">sur</span>
+        <span id="count"></span>
+      </div>
+      <button id="next" type="button">›</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button id="zoom-out" type="button">−</button>
+      <output id="zoom">100 %</output>
+      <button id="zoom-in" type="button">+</button>
+      <button id="fit" type="button">↔</button>
+    </header>
+    <p id="status">Chargement…</p>
+    <main id="pages"></main>
+    <script src="/viewer/pdf-viewer.js"></script>
+  </body>
+</html>

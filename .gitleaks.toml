@@ -1,0 +1,10 @@
+title = "Plume"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fichiers d'exemple et de test sans secret réel"
+paths = [
+  '''pnpm-lock\.yaml''',
+]

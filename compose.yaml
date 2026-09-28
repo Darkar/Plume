@@ -1,0 +1,3 @@
+# Point d'entrée : `docker compose up -d` depuis la racine du dépôt.
+include:
+  - deploy/docker-compose.yml

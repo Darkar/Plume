@@ -1,0 +1,118 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: #525659;
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+  color: #fff;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#toolbar:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #323639;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 40%);
+}
+
+#toolbar button {
+  min-width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#toolbar button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 12%);
+}
+
+#toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#toolbar button:focus-visible,
+#page:focus-visible {
+  outline: 2px solid #a5a0ff;
+  outline-offset: 1px;
+}
+
+#goto {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+#page {
+  width: 3.5em;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid #6b7075;
+  border-radius: 6px;
+  background: #1f2225;
+  color: #fff;
+  font: inherit;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+#page::-webkit-inner-spin-button,
+#page::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#zoom {
+  min-width: 4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 6px;
+  background: rgb(255 255 255 / 25%);
+}
+
+#status {
+  margin: 16px;
+}
+
+#pages {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: auto;
+  padding: 12px 16px;
+}
+
+/* Marges automatiques plutôt qu'un centrage flex : une page plus large que la zone reste
+   entièrement accessible par le défilement horizontal. */
+.page {
+  margin: 0 auto 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 40%);
+}
+
+.page canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

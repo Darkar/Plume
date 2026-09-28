@@ -1,0 +1,260 @@
+# Pile Plume. Lancer depuis la racine du dépôt : `docker compose up -d` (voir compose.yaml).
+# Tous les chemins relatifs sont résolus depuis ce dossier (deploy/).
+#
+# Secrets : générés au premier démarrage par le service « secrets » dans le volume
+# plume_secrets ; chaque conteneur ne reçoit que son sous-dossier, monté en lecture seule sur
+# /run/secrets (docs/DECISIONS.md, D-057).
+
+x-hardening: &hardening
+  user: '10001:10001'
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  restart: unless-stopped
+  pids_limit: 256
+  logging:
+    driver: json-file
+    options: { max-size: '10m', max-file: '5' }
+
+x-secrets-app: &secrets-app
+  type: volume
+  source: plume_secrets
+  target: /run/secrets
+  read_only: true
+  volume: { subpath: app }
+
+services:
+  # Génère les secrets manquants (clé maître, mots de passe) puis s'arrête. Idempotent.
+  secrets:
+    <<: *hardening
+    build: { context: .., dockerfile: apps/api/Dockerfile }
+    image: plume/api:local
+    command: ['node', 'dist/cli.js', 'init-secrets', '/var/lib/plume/secrets']
+    volumes: [plume_secrets:/var/lib/plume/secrets]
+    network_mode: none
+    restart: 'no'
+    healthcheck: { disable: true }
+    mem_limit: 128m
+    cpus: 0.5
+
+  # Outils d'administration (rotation de la clé maître…) : `docker compose run --rm admin …`.
+  admin:
+    <<: *hardening
+    image: plume/api:local
+    profiles: [tools]
+    entrypoint: ['node', 'dist/cli.js']
+    command: []
+    volumes:
+      - ../config/plume.yaml:/etc/plume/plume.yaml:ro
+      - *secrets-app
+      - plume_secrets:/var/lib/plume/secrets
+    environment:
+      PLUME_CONFIG: /etc/plume/plume.yaml
+    networks: [internal]
+    restart: 'no'
+    healthcheck: { disable: true }
+    mem_limit: 256m
+    cpus: 0.5
+
+  caddy:
+    build: { context: .., dockerfile: deploy/caddy/Dockerfile }
+    image: plume/caddy:local
+    ports: ['80:80', '443:443', '443:443/udp']
+    environment:
+      PLUME_SITE_ADDRESS: ${PLUME_SITE_ADDRESS:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      api: { condition: service_healthy }
+    user: '10002:10002'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 256
+
+  api:
+    <<: *hardening
+    build: { context: .., dockerfile: apps/api/Dockerfile }
+    image: plume/api:local
+    volumes:
+      - ../config/plume.yaml:/etc/plume/plume.yaml:ro
+      - *secrets-app
+    environment:
+      PLUME_CONFIG: /etc/plume/plume.yaml
+      # Mot de passe d'un relais SMTP commun (smtp.auth.password_env dans plume.yaml), depuis .env.
+      PLUME_SMTP_RELAY_PASSWORD: ${PLUME_SMTP_RELAY_PASSWORD:-}
+    networks: [edge, egress, internal]
+    depends_on:
+      secrets: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ['CMD', 'node', 'dist/healthcheck.js']
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  worker:
+    <<: *hardening
+    build: { context: .., dockerfile: apps/worker/Dockerfile }
+    image: plume/worker:local
+    volumes:
+      - ../config/plume.yaml:/etc/plume/plume.yaml:ro
+      - *secrets-app
+    environment:
+      PLUME_CONFIG: /etc/plume/plume.yaml
+      # Mot de passe d'un relais SMTP commun (smtp.auth.password_env dans plume.yaml), depuis .env.
+      PLUME_SMTP_RELAY_PASSWORD: ${PLUME_SMTP_RELAY_PASSWORD:-}
+    networks: [egress, internal]
+    depends_on:
+      secrets: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_healthy } # l'API applique les migrations au démarrage
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ['CMD', 'node', 'dist/healthcheck.js']
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    user: '70:70'
+    read_only: true
+    tmpfs: [/tmp, /var/run/postgresql]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: plume
+      POSTGRES_DB: plume
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256 --auth-local=scram-sha-256'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - type: volume
+        source: plume_secrets
+        target: /run/secrets
+        read_only: true
+        volume: { subpath: postgres }
+    depends_on:
+      secrets: { condition: service_completed_successfully }
+    networks: [internal]
+    mem_limit: 1g
+    cpus: 1.0
+    shm_size: 128m
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-h', '127.0.0.1', '-U', 'plume', '-d', 'plume']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Sauvegardes de la base (pg_dump quotidien, rétention 14 jours) : voir docs/OPERATIONS.md.
+  backup:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    user: '70:70'
+    read_only: true
+    # Le point de montage du volume de données de l'image est neutralisé (pas de volume anonyme).
+    tmpfs: [/tmp, /var/lib/postgresql/data]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/usr/local/bin/plume-backup']
+    command: [loop]
+    environment:
+      PLUME_BACKUP_INTERVAL: ${PLUME_BACKUP_INTERVAL:-86400}
+      PLUME_BACKUP_RETENTION_DAYS: ${PLUME_BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./backup/backup.sh:/usr/local/bin/plume-backup:ro
+      # Un volume neuf hérite du propriétaire du dossier de l'image (UID 70).
+      - pg_backups:/var/lib/postgresql
+      - type: volume
+        source: plume_secrets
+        target: /run/secrets
+        read_only: true
+        volume: { subpath: postgres }
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    healthcheck:
+      # Sain tant qu'une sauvegarde de moins de 26 h existe.
+      test:
+        [
+          'CMD-SHELL',
+          "find /var/lib/postgresql/backups -name 'plume-*.dump' -mmin -1560 | grep -q .",
+        ]
+      interval: 60s
+      timeout: 10s
+      start_period: 120s
+      start_interval: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    user: '999:1000'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    restart: unless-stopped
+    # Mot de passe lu depuis un fichier ACL monté en secret (jamais dans la ligne de commande).
+    command:
+      - redis-server
+      - --aclfile
+      - /run/secrets/redis_acl
+      - --appendonly
+      - 'yes'
+      - --protected-mode
+      - 'yes'
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis_data:/data
+      - type: volume
+        source: plume_secrets
+        target: /run/secrets
+        read_only: true
+        volume: { subpath: redis }
+    depends_on:
+      secrets: { condition: service_completed_successfully }
+    networks: [internal]
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      # L'utilisateur ACL « health » n'a droit qu'à la commande PING.
+      test:
+        ['CMD-SHELL', 'redis-cli --no-auth-warning --user health --pass none ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  edge: {}
+  egress: {}
+  internal:
+    internal: true
+
+volumes:
+  plume_secrets: {}
+  pg_data: {}
+  pg_backups: {}
+  redis_data: {}
+  caddy_data: {}
+  caddy_config: {}

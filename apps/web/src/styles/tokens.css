@@ -1,0 +1,231 @@
+/*
+ * Jetons de thème. Clair par défaut ; sombre via data-theme="dark" ou, en mode « auto », via la
+ * préférence système. Contrastes vérifiés AA par test/tokens.test.ts (texte ≥ 4.5:1, éléments
+ * d'interface ≥ 3:1).
+ */
+
+/* Couleurs d'accent. `--accent-light` : aplat des boutons (texte blanc dessus, dans les deux
+   thèmes) et texte d'accent en thème clair ; `--accent-dark` : texte d'accent (liens, éléments
+   actifs) en thème sombre. */
+:root {
+  --accent-light: #3643cf;
+  --accent-light-rgb: 54 67 207;
+  --accent-dark: #a5adff;
+  --accent-dark-rgb: 165 173 255;
+}
+
+:root[data-accent='indigo'] {
+  --accent-light: #3643cf;
+  --accent-light-rgb: 54 67 207;
+  --accent-dark: #a5adff;
+  --accent-dark-rgb: 165 173 255;
+}
+
+:root[data-accent='blue'] {
+  --accent-light: #1d4ed8;
+  --accent-light-rgb: 29 78 216;
+  --accent-dark: #93c5fd;
+  --accent-dark-rgb: 147 197 253;
+}
+
+:root[data-accent='teal'] {
+  --accent-light: #0c655e;
+  --accent-light-rgb: 12 101 94;
+  --accent-dark: #5eead4;
+  --accent-dark-rgb: 94 234 212;
+}
+
+:root[data-accent='green'] {
+  --accent-light: #11672f;
+  --accent-light-rgb: 17 103 47;
+  --accent-dark: #86efac;
+  --accent-dark-rgb: 134 239 172;
+}
+
+:root[data-accent='orange'] {
+  --accent-light: #9f3714;
+  --accent-light-rgb: 159 55 20;
+  --accent-dark: #fdba74;
+  --accent-dark-rgb: 253 186 116;
+}
+
+:root[data-accent='rose'] {
+  --accent-light: #ad1137;
+  --accent-light-rgb: 173 17 55;
+  --accent-dark: #fda4af;
+  --accent-dark-rgb: 253 164 175;
+}
+
+:root {
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  /* Pastilles (avatars, libellés) : texte blanc dessus. */
+  --swatch-1: #3643cf;
+  --swatch-2: #0f766e;
+  --swatch-3: #b3401a;
+  --swatch-4: #6d28d9;
+  --swatch-5: #be185d;
+  --swatch-6: #475569;
+  --swatch-7: #15803d;
+  --swatch-8: #92400e;
+
+  --color-bg: #ecebe6;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f4f0;
+  --color-surface-hover: #efeeea;
+  --color-border: #e2e0da;
+  --color-border-strong: #85827a;
+  --color-text: #171717;
+  --color-text-muted: #5b5954;
+  --color-accent: var(--accent-light);
+  --color-accent-text: var(--accent-light);
+  --color-accent-soft: rgb(var(--accent-light-rgb) / 10%);
+  --color-accent-contrast: #ffffff;
+  --color-link: var(--accent-light);
+  --color-danger: #b42318;
+  --color-danger-contrast: #ffffff;
+  --color-danger-surface: #fef3f2;
+  --color-focus: var(--accent-light);
+  --color-inverse: #171717;
+  --color-inverse-text: #ffffff;
+  --shadow-sm: 0 1px 2px rgb(20 20 20 / 6%);
+  --shadow-lg: 0 18px 50px rgb(20 20 20 / 14%), 0 2px 8px rgb(20 20 20 / 6%);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #0f0f0f;
+  --color-surface: #181818;
+  --color-surface-muted: #202020;
+  --color-surface-hover: #242424;
+  --color-border: #2a2a2a;
+  --color-border-strong: #737373;
+  --color-text: #ededed;
+  --color-text-muted: #a3a3a3;
+  --color-accent: var(--accent-light);
+  --color-accent-text: var(--accent-dark);
+  --color-accent-soft: rgb(var(--accent-dark-rgb) / 12%);
+  --color-accent-contrast: #ffffff;
+  --color-link: var(--accent-dark);
+  --color-danger: #ff8a7a;
+  --color-danger-contrast: #0f0f0f;
+  --color-danger-surface: #2a1715;
+  --color-focus: var(--accent-dark);
+  --color-inverse: #f2f2f2;
+  --color-inverse-text: #111111;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-lg: 0 18px 50px rgb(0 0 0 / 55%);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='auto'] {
+    --color-bg: #0f0f0f;
+    --color-surface: #181818;
+    --color-surface-muted: #202020;
+    --color-surface-hover: #242424;
+    --color-border: #2a2a2a;
+    --color-border-strong: #737373;
+    --color-text: #ededed;
+    --color-text-muted: #a3a3a3;
+    --color-accent: var(--accent-light);
+    --color-accent-text: var(--accent-dark);
+    --color-accent-soft: rgb(var(--accent-dark-rgb) / 12%);
+    --color-accent-contrast: #ffffff;
+    --color-link: var(--accent-dark);
+    --color-danger: #ff8a7a;
+    --color-danger-contrast: #0f0f0f;
+    --color-danger-surface: #2a1715;
+    --color-focus: var(--accent-dark);
+    --color-inverse: #f2f2f2;
+    --color-inverse-text: #111111;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-lg: 0 18px 50px rgb(0 0 0 / 55%);
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+}
+
+/* Nom de marque (« Plume ») : seul usage de la police à empattements. */
+.serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Titres d'affichage (connexion, sujet du message, paramètres) : Inter, serré. */
+.display {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: -0.022em;
+}
+
+a {
+  color: var(--color-link);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

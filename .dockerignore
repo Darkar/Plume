@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/coverage
+.git
+.github
+secrets
+config/plume.yaml
+playwright-report
+test-results
+*.log
+.env
+.env.*

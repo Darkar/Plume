@@ -1,0 +1,20 @@
+# Plume derrière un reverse proxy existant (nginx, Traefik, HAProxy…) qui assure le TLS (D-062).
+# Caddy reste le serveur web interne (SPA, CSP et en-têtes de sécurité, routage de l'API) mais
+# écoute en HTTP simple, publié uniquement sur l'interface locale de l'hôte.
+#
+# Usage (fichier .env à la racine) :
+#   COMPOSE_FILE=compose.yaml:deploy/docker-compose.behind-proxy.yml
+#   PLUME_LOCAL_PORT=8080          # port local (défaut 8080)
+#   PLUME_LOCAL_BIND=127.0.0.1     # interface publiée (défaut : locale uniquement)
+# puis `docker compose up -d --build --wait` et faire pointer le proxy vers
+# http://127.0.0.1:8080. `server.public_url` reste l'adresse PUBLIQUE en https (plume.yaml).
+services:
+  caddy:
+    ports: !override
+      - '${PLUME_LOCAL_BIND:-127.0.0.1}:${PLUME_LOCAL_PORT:-8080}:8080'
+    environment:
+      PLUME_SITE_ADDRESS: ':8080'
+      # Le proxy amont arrive depuis la passerelle Docker (adresse privée) : ses en-têtes
+      # X-Forwarded-For / -Proto sont conservés. Si le port est publié au-delà de 127.0.0.1,
+      # restreindre à l'adresse du proxy (ex. 192.168.1.10/32).
+      PLUME_TRUSTED_PROXIES: ${PLUME_TRUSTED_PROXIES:-private_ranges}

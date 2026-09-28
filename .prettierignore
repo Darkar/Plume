@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+dist
+coverage
+apps/api/drizzle
+playwright-report
+docs/openapi.json
+zap

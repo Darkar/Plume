@@ -1,0 +1,27 @@
+{
+  "name": "@plume/mail",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@plume/config": "workspace:*",
+    "@plume/rules": "workspace:*",
+    "dompurify": "^3.4.16",
+    "imapflow": "^2.0.6",
+    "ipaddr.js": "^2.5.0",
+    "jsdom": "^30.1.1",
+    "nodemailer": "^10.0.10",
+    "undici": "^8.11.2"
+  },
+  "devDependencies": {
+    "@plume/testing": "workspace:*",
+    "@types/jsdom": "^30.0.0",
+    "@types/nodemailer": "^8.0.2"
+  }
+}

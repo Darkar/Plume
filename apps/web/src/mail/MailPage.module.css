@@ -1,0 +1,746 @@
+/* Boîte de réception : un panneau arrondi contenant la liste et le message ouvert. */
+.page {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+/* ---------- Liste ---------- */
+
+.listPane {
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.listHeader {
+  padding: 20px 16px 12px;
+  display: grid;
+  gap: 14px;
+}
+
+.listTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px;
+}
+
+.listTitle {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listTitleSide {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: -8px;
+}
+
+.refreshing svg {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.count {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 0 14px;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+.search:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  min-height: 42px;
+  outline: none;
+}
+
+.search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search kbd {
+  font-family: inherit;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter {
+  min-height: 34px;
+  padding: 0 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.filter:hover {
+  color: var(--color-text);
+}
+
+.filter[aria-pressed='true'] {
+  background: var(--color-inverse);
+  border-color: var(--color-inverse);
+  color: var(--color-inverse-text);
+  font-weight: 500;
+}
+
+.listScroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+  padding: 2px 8px 12px;
+}
+
+.state {
+  padding: 24px 16px;
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* Colonne bornée : un sujet ou un expéditeur sans espace (courant dans les indésirables) est
+     tronqué au lieu d'élargir la liste. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 14px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--color-surface-hover);
+}
+
+.row[aria-current='true'] {
+  background: var(--color-accent-soft);
+  border-color: rgb(var(--accent-light-rgb) / 55%);
+}
+
+.rowMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rowTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sender,
+.subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sender {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 0.95rem;
+}
+
+.unreadDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent-text);
+  flex: none;
+}
+
+.date {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowSender,
+.chipText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.row[data-unread] .sender,
+.row[data-unread] .subject {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--color-text-muted);
+}
+
+.metaIcon {
+  display: inline-flex;
+}
+
+.flag {
+  color: var(--color-accent-text);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.chipDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.chipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px -6px -4px -2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.chipRemove:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.more {
+  padding: 12px;
+  display: grid;
+}
+
+/* ---------- Message ouvert ---------- */
+
+.previewPane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.emptyPane {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.archive {
+  min-height: 40px;
+  margin-right: 6px;
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  background: var(--color-border);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.position {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-right: 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.closePreview {
+  display: none;
+}
+
+.previewScroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 28px clamp(20px, 5%, 56px) 20px;
+}
+
+.previewHeader {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.headerLabels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.previewSubject {
+  margin: 0;
+  cursor: grab;
+  font-size: clamp(1.35rem, 1.7vw, 1.7rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.senderBlock {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.senderText {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.senderName {
+  font-weight: 600;
+}
+
+.senderAddress {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.senderMeta {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.starred {
+  color: var(--color-accent-text);
+}
+
+.starred svg {
+  fill: currentColor;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.toolbar + .banner,
+.toolbar + .banner + .banner {
+  margin: 12px 16px 0;
+}
+
+.banner span {
+  flex: 1;
+  min-width: 12ch;
+}
+
+.dateInput {
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.body {
+  flex: 1 0 auto;
+  /* Le document du message a une marge intérieure de 16 px : le texte s'aligne sur l'en-tête. */
+  width: calc(100% + 32px);
+  min-height: 360px;
+  margin: 8px -16px 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color-scheme: normal;
+}
+
+/* Hauteur connue : exactement celle du contenu (un mail court ne laisse pas de vide). */
+.body[data-sized] {
+  flex: none;
+  min-height: 80px;
+}
+
+.attachments ul {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(360px, 100%);
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
+}
+
+.fileType {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.fileText {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.fileName {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  flex: none;
+}
+
+.download:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+/* Libellés (panneau de la barre d'outils) */
+.labelForm {
+  display: grid;
+  gap: 8px;
+}
+
+.labelForm label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.labelFormRow {
+  display: flex;
+  gap: 6px;
+}
+
+.labelFormRow input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.labelError {
+  color: var(--color-danger);
+  font-size: 0.85rem;
+}
+
+/* Réponse rapide */
+/* Aperçu d'une pièce jointe */
+.previewDialog {
+  width: min(960px, calc(100vw - 32px));
+  height: min(90vh, 1100px);
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+}
+
+.previewDialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.previewDialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.previewDialogHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.previewDialogHeader h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.previewFrame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #525659;
+}
+
+/* Densité compacte (préférence) : lignes de liste resserrées. */
+:global([data-density='compact']) .row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  gap: 10px;
+}
+
+:global([data-density='compact']) .row > :first-child {
+  width: 30px !important;
+  height: 30px !important;
+  font-size: 0.7rem !important;
+}
+
+:global([data-density='compact']) .meta {
+  margin-top: 0;
+}
+
+/* Écrans étroits : la liste ou le message, pas les deux. */
+@media (max-width: 1100px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .page[data-has-preview] .listPane {
+    display: none;
+  }
+
+  .page:not([data-has-preview]) .previewPane {
+    display: none;
+  }
+
+  .closePreview {
+    display: inline-flex;
+  }
+}
+
+/* Téléphones : marges réduites, barre d'outils compacte, sujet plus petit. */
+@media (max-width: 760px) {
+  .page {
+    border-radius: var(--radius-lg);
+  }
+
+  .listHeader {
+    padding: 14px 10px 8px;
+    gap: 10px;
+  }
+
+  .listTitle {
+    font-size: 1.25rem;
+  }
+
+  .search kbd {
+    display: none;
+  }
+
+  .listScroll {
+    padding: 2px 4px 8px;
+  }
+
+  .row {
+    padding: 12px 8px;
+  }
+
+  .toolbar {
+    padding: 8px;
+    gap: 0;
+  }
+
+  /* « Fermer » devient le retour à la liste, en tête de barre. */
+  .closePreview {
+    order: -1;
+  }
+
+  .position,
+  .toolbarDivider,
+  .stepper {
+    display: none;
+  }
+
+  /* Archiver : icône seule (le nom accessible reste le texte, masqué visuellement). */
+  .archive {
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    margin-right: 0;
+    border-color: transparent;
+  }
+
+  .archiveLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .toolbar {
+    flex-wrap: nowrap;
+  }
+
+  .previewScroll {
+    padding: 18px 14px 12px;
+  }
+
+  .previewSubject {
+    font-size: 1.3rem;
+  }
+
+  .senderBlock {
+    align-items: flex-start;
+  }
+
+  .attachment {
+    width: 100%;
+  }
+}

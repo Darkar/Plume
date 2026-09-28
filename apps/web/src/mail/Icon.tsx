@@ -1,0 +1,135 @@
+import {
+  AlarmClock,
+  Menu,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  UserPlus,
+  Users,
+  Bold,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Underline,
+  Archive,
+  ArrowLeft,
+  ArrowRight,
+  Bell,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Contrast,
+  Download,
+  Ellipsis,
+  Eye,
+  EyeOff,
+  Feather,
+  File,
+  Folder,
+  FolderInput,
+  Forward,
+  Image,
+  Inbox,
+  ListFilter,
+  Lock,
+  LogOut,
+  Mail,
+  MailOpen,
+  Paperclip,
+  PenLine,
+  Plus,
+  Reply,
+  ReplyAll,
+  Search,
+  Send,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Star,
+  Tag,
+  Trash2,
+  User,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+
+/** Icônes (SVG en ligne, décoratives : le libellé accessible est porté par le contrôle). */
+const ICONS = {
+  inbox: Inbox,
+  star: Star,
+  send: Send,
+  draft: File,
+  archive: Archive,
+  trash: Trash2,
+  junk: ShieldAlert,
+  notJunk: ShieldCheck,
+  folder: Folder,
+  move: FolderInput,
+  paperclip: Paperclip,
+  chevronUp: ChevronUp,
+  chevronDown: ChevronDown,
+  close: X,
+  search: Search,
+  image: Image,
+  download: Download,
+  clock: AlarmClock,
+  tag: Tag,
+  mail: Mail,
+  markUnread: MailOpen,
+  lock: Lock,
+  eye: Eye,
+  eyeOff: EyeOff,
+  pen: PenLine,
+  arrowRight: ArrowRight,
+  arrowLeft: ArrowLeft,
+  settings: Settings,
+  user: User,
+  contrast: Contrast,
+  bell: Bell,
+  shield: ShieldCheck,
+  logout: LogOut,
+  reply: Reply,
+  replyAll: ReplyAll,
+  forward: Forward,
+  more: Ellipsis,
+  check: Check,
+  plus: Plus,
+  rules: ListFilter,
+  feather: Feather,
+  bold: Bold,
+  italic: Italic,
+  underline: Underline,
+  bullets: List,
+  numbers: ListOrdered,
+  link: Link2,
+  maximize: Maximize2,
+  minimize: Minimize2,
+  refresh: RefreshCw,
+  userPlus: UserPlus,
+  users: Users,
+  menu: Menu,
+} satisfies Record<string, LucideIcon>;
+
+export type IconName = keyof typeof ICONS;
+
+export function Icon({
+  name,
+  size = 18,
+  className,
+}: {
+  name: IconName | string;
+  size?: number;
+  className?: string;
+}) {
+  const Component = ICONS[name as IconName] ?? Folder;
+  return (
+    <Component
+      size={size}
+      strokeWidth={1.75}
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+    />
+  );
+}

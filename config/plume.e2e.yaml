@@ -1,0 +1,53 @@
+# Configuration des tests de bout en bout (Playwright, ZAP) — pile docker-compose.e2e.yml.
+# Ce fichier est validé au démarrage : tout champ inconnu ou invalide empêche le démarrage.
+# Aucun secret ne doit y figurer en clair : on référence des fichiers (*_file) ou des variables
+# d'environnement (*_env).
+
+server:
+  public_url: https://localhost
+  trusted_proxies: ['172.16.0.0/12']
+
+# Liste blanche : seuls ces domaines peuvent se connecter.
+# Le domaine est déduit de l'adresse saisie (partie après @).
+# Chaque domaine indique SON serveur IMAP/SMTP : l'hôte n'est JAMAIS choisi par l'utilisateur.
+domains:
+  # Serveur de messagerie de test (GreenMail, certificat auto-signé) : NE PAS utiliser en production.
+  - domain: exemple.com
+    imap: { host: greenmail, port: 3993, security: tls }
+    smtp: { host: greenmail, port: 3465, security: tls }
+    tls: { reject_unauthorized: false }
+  - domain: '*.exemple.fr'
+    imap: { host: greenmail, port: 3993, security: tls }
+    smtp: { host: greenmail, port: 3465, security: tls }
+    tls: { reject_unauthorized: false }
+
+auth:
+  session_ttl: 12h
+  idle_timeout: 30m
+  remember_me_ttl: 30d
+  totp: optional # disabled | optional | required
+  rate_limit:
+    per_ip: { max: 1000, window: 15m }
+    per_account: { max: 5, window: 15m, lockout: 30m }
+
+security:
+  master_key_file: /run/secrets/plume_master_key
+  remote_images: block_by_default # block_by_default | allow
+  max_attachment_size: 25MB
+  max_upload_total: 50MB
+
+rules:
+  enabled: true
+  max_rules_per_user: 100
+  forward:
+    enabled: true
+    allowed_destination_domains: ['exemple.com'] # vide = transfert interdit
+
+database:
+  url_file: /run/secrets/database_url
+redis:
+  url_file: /run/secrets/redis_url
+
+logging:
+  level: info
+  format: json

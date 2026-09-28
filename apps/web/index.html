@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr" data-theme="auto" data-accent="indigo" data-density="comfortable">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Plume</title>
+    <script>
+      // Apparence appliquée avant le premier rendu (pas de flash) ; autorisé par un hash CSP.
+      (function () {
+        try {
+          var a = JSON.parse(localStorage.getItem('plume:appearance') || '{}');
+          var r = document.documentElement;
+          if (/^(auto|light|dark)$/.test(a.theme)) r.setAttribute('data-theme', a.theme);
+          if (/^(indigo|blue|teal|green|orange|rose)$/.test(a.accent))
+            r.setAttribute('data-accent', a.accent);
+          if (/^(comfortable|compact)$/.test(a.density)) r.setAttribute('data-density', a.density);
+          if (/^(fr|en)$/.test(a.lang)) r.setAttribute('lang', a.lang);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
