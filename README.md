@@ -1,4 +1,10 @@
-# Plume
+<p align="center">
+  <img src="docs/assets/plume-logo.svg" alt="" width="96" height="96">
+</p>
+
+<h1 align="center">Plume</h1>
+
+<p align="center">Webmail auto-hébergé, sécurisé et moderne pour vos serveurs IMAP/SMTP</p>
 
 Webmail moderne et auto-hébergé : une interface web rapide au-dessus de vos serveurs IMAP/SMTP
 existants, avec une liste blanche de domaines, un second facteur (TOTP) et un moteur de règles
