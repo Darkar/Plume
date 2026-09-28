@@ -6,6 +6,10 @@
 
 <p align="center">Webmail auto-hébergé, sécurisé et moderne pour vos serveurs IMAP/SMTP</p>
 
+<p align="center">
+  <img src="docs/assets/screenshots/boite-clair.png" alt="Boîte de réception de Plume avec un message ouvert" width="900">
+</p>
+
 Webmail moderne et auto-hébergé : une interface web rapide au-dessus de vos serveurs IMAP/SMTP
 existants, avec une liste blanche de domaines, un second facteur (TOTP) et un moteur de règles
 exécuté côté serveur.
@@ -13,6 +17,18 @@ exécuté côté serveur.
 > Plume ne stocke pas les messages : le serveur IMAP reste la source de vérité. Plume conserve
 > seulement les comptes (identifiants chiffrés), les préférences, les règles et le journal
 > d'audit.
+
+## Aperçu
+
+| Thème sombre                                                                    | Rédaction d'une réponse                                                                 |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| ![Boîte de réception en thème sombre](docs/assets/screenshots/boite-sombre.png) | ![Fenêtre de réponse avec citation et signature](docs/assets/screenshots/redaction.png) |
+| **Connexion**                                                                   | **Paramètres**                                                                          |
+| ![Page de connexion](docs/assets/screenshots/connexion.png)                     | ![Paramètres du compte et de l'apparence](docs/assets/screenshots/parametres.png)       |
+
+<p align="center">
+  <img src="docs/assets/screenshots/mobile.png" alt="Boîte de réception sur téléphone" width="260">
+</p>
 
 ## Sommaire
 
