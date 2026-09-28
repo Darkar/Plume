@@ -216,16 +216,14 @@ export async function mailRoutes(app: FastifyInstance) {
         query: q || undefined,
         label,
         limit,
-        beforeUid: position?.beforeUid,
+        before: position?.before,
         uidValidity: position?.uidValidity,
       }),
     );
     return {
       messages: result.messages.map(summaryView),
       nextCursor:
-        result.nextBeforeUid !== null
-          ? encodeCursor(result.uidValidity, result.nextBeforeUid)
-          : null,
+        result.nextBefore !== null ? encodeCursor(result.uidValidity, result.nextBefore) : null,
       total: result.total,
     };
   });

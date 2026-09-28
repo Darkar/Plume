@@ -79,25 +79,61 @@ describe('liste des messages', () => {
     expect(page1.total).toBe(26);
     expect(page1.messages).toHaveLength(10);
     expect(page1.messages[0]?.subject).toBe('Facture septembre');
-    expect(page1.nextBeforeUid).not.toBeNull();
+    expect(page1.nextBefore).not.toBeNull();
     const page2 = await listMessages(client, {
       folder: 'INBOX',
       filter: 'all',
       limit: 10,
-      beforeUid: page1.nextBeforeUid as number,
+      before: page1.nextBefore ?? undefined,
       uidValidity: page1.uidValidity,
     });
     const page3 = await listMessages(client, {
       folder: 'INBOX',
       filter: 'all',
       limit: 10,
-      beforeUid: page2.nextBeforeUid as number,
+      before: page2.nextBefore ?? undefined,
       uidValidity: page1.uidValidity,
     });
     expect(page3.messages).toHaveLength(6);
-    expect(page3.nextBeforeUid).toBeNull();
+    expect(page3.nextBefore).toBeNull();
     const all = [...page1.messages, ...page2.messages, ...page3.messages].map((m) => m.ref.uid);
     expect(new Set(all).size).toBe(26);
+  });
+
+  it('trie par date de réception : un message déplacé garde sa place chronologique', async () => {
+    await client.mailboxCreate('Chrono').catch(() => undefined);
+    await client.mailboxCreate('Source').catch(() => undefined);
+    const raw = (subject: string) =>
+      Buffer.from(`From: a@exemple.com\r\nSubject: ${subject}\r\n\r\nx\r\n`);
+    await client.append('Chrono', raw('Juin'), [], new Date('2026-06-15T10:00:00Z'));
+    await client.append('Chrono', raw('Aout'), [], new Date('2026-08-15T10:00:00Z'));
+    await client.append('Source', raw('Janvier'), [], new Date('2026-01-15T10:00:00Z'));
+    await client.append('Source', raw('Juillet'), [], new Date('2026-07-15T10:00:00Z'));
+    // Archivage : les messages anciens arrivent en dernier dans le dossier (UID les plus grands).
+    const lock = await client.getMailboxLock('Source');
+    try {
+      await client.messageMove('1:*', 'Chrono');
+    } finally {
+      lock.release();
+    }
+
+    const subjects: string[] = [];
+    let before: Parameters<typeof listMessages>[1]['before'];
+    let uidValidity: string | undefined;
+    for (let i = 0; i < 5; i++) {
+      const page = await listMessages(client, {
+        folder: 'Chrono',
+        filter: 'all',
+        limit: 1,
+        before,
+        uidValidity,
+      });
+      subjects.push(...page.messages.map((m) => m.subject));
+      if (!page.nextBefore) break;
+      before = page.nextBefore;
+      uidValidity = page.uidValidity;
+    }
+    expect(subjects).toEqual(['Aout', 'Juillet', 'Juin', 'Janvier']);
   });
 
   it('filtre non lus, favoris et pièces jointes', async () => {

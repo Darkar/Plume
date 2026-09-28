@@ -63,18 +63,21 @@ export function decodeAttachmentId(id: string): { ref: MessageRef; part: string 
   return { ref, part };
 }
 
-export function encodeCursor(uidValidity: string, beforeUid: number): string {
-  return encode([uidValidity, beforeUid]);
+export function encodeCursor(uidValidity: string, before: { date: number; uid: number }): string {
+  return encode([uidValidity, before.date, before.uid]);
 }
 
-export function decodeCursor(cursor: string): { uidValidity: string; beforeUid: number } | null {
+/** Curseur de pagination : UIDVALIDITY et position (date de réception, UID) du dernier message. */
+export function decodeCursor(
+  cursor: string,
+): { uidValidity: string; before: { date: number; uid: number } } | null {
   const value = decode(cursor);
-  if (!value || value.length !== 2) return null;
-  const [uidValidity, beforeUid] = value;
+  if (!value || value.length !== 3) return null;
+  const [uidValidity, date, uid] = value;
   if (typeof uidValidity !== 'string' || !/^\d{1,20}$/.test(uidValidity)) return null;
-  if (typeof beforeUid !== 'number' || !Number.isSafeInteger(beforeUid) || beforeUid < 1)
-    return null;
-  return { uidValidity, beforeUid };
+  if (typeof date !== 'number' || !Number.isSafeInteger(date) || date < 0) return null;
+  if (typeof uid !== 'number' || !Number.isSafeInteger(uid) || uid < 1) return null;
+  return { uidValidity, before: { date, uid } };
 }
 
 /**

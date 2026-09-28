@@ -69,6 +69,12 @@ export interface MessageDetail extends MessageSummary {
 
 export type ListFilter = 'all' | 'unseen' | 'flagged' | 'attachments';
 
+/** Position dans la liste : date de réception (ms) et UID du dernier message affiché. */
+export interface ListPosition {
+  date: number;
+  uid: number;
+}
+
 export interface ListOptions {
   folder: string;
   filter: ListFilter;
@@ -76,7 +82,8 @@ export interface ListOptions {
   /** Libellé (mot-clé IMAP) : restreint la liste aux messages qui le portent. */
   label?: string;
   /** UID strictement inférieur à partir duquel reprendre (pagination par curseur). */
-  beforeUid?: number;
+  /** Position de la page suivante : sous ce message dans l'ordre (date décroissante, UID). */
+  before?: ListPosition;
   uidValidity?: string;
   limit: number;
 }
@@ -84,8 +91,8 @@ export interface ListOptions {
 export interface ListResult {
   uidValidity: string;
   messages: MessageSummary[];
-  /** UID à partir duquel charger la page suivante, ou null s'il n'y en a plus. */
-  nextBeforeUid: number | null;
+  /** Position à partir de laquelle charger la page suivante, ou null s'il n'y en a plus. */
+  nextBefore: ListPosition | null;
   total: number;
 }
 
@@ -352,6 +359,68 @@ function currentUidValidity(client: ImapFlow): string {
   return mailbox ? String(mailbox.uidValidity) : '0';
 }
 
+/**
+ * Dates de réception (INTERNALDATE) par connexion, dossier et UIDVALIDITY : lues une fois par
+ * message puis réutilisées, pour trier sans relire toute la boîte à chaque page. La date de
+ * réception est conservée par MOVE/COPY : un message archivé garde sa place chronologique.
+ */
+const arrivalCache = new WeakMap<ImapFlow, Map<string, Map<number, number>>>();
+const MAX_CACHED_DATES = 250_000;
+
+/** Ensemble d'UID compact pour IMAP (« 1:5,8,10:12 »). */
+function uidSet(uids: number[]): string {
+  const sorted = [...uids].sort((a, b) => a - b);
+  const parts: string[] = [];
+  let start = sorted[0] as number;
+  let prev = start;
+  for (const uid of sorted.slice(1)) {
+    if (uid === prev + 1) {
+      prev = uid;
+      continue;
+    }
+    parts.push(start === prev ? String(start) : `${start}:${prev}`);
+    start = prev = uid;
+  }
+  parts.push(start === prev ? String(start) : `${start}:${prev}`);
+  return parts.join(',');
+}
+
+async function arrivalDates(
+  client: ImapFlow,
+  folder: string,
+  uidValidity: string,
+  uids: number[],
+): Promise<Map<number, number>> {
+  let folders = arrivalCache.get(client);
+  if (!folders) {
+    folders = new Map();
+    arrivalCache.set(client, folders);
+  }
+  const key = `${uidValidity}:${folder}`;
+  let dates = folders.get(key);
+  if (!dates || dates.size > MAX_CACHED_DATES) {
+    dates = new Map();
+    folders.set(key, dates);
+  }
+  const missing = uids.filter((uid) => !dates.has(uid));
+  if (missing.length > 0) {
+    for await (const msg of client.fetch(
+      uidSet(missing),
+      { uid: true, internalDate: true },
+      { uid: true },
+    )) {
+      const time = msg.internalDate ? new Date(msg.internalDate).getTime() : 0;
+      dates.set(msg.uid, Number.isNaN(time) ? 0 : time);
+    }
+  }
+  return dates;
+}
+
+/** Ordre de la liste : plus récent d'abord (date de réception), puis UID décroissant. */
+function compareArrival(dates: Map<number, number>) {
+  return (a: number, b: number) => (dates.get(b) ?? 0) - (dates.get(a) ?? 0) || b - a;
+}
+
 export async function listMessages(client: ImapFlow, options: ListOptions): Promise<ListResult> {
   return withLock(client, options.folder, true, async () => {
     const uidValidity = currentUidValidity(client);
@@ -364,12 +433,21 @@ export async function listMessages(client: ImapFlow, options: ListOptions): Prom
     if (options.query) criteria.text = options.query;
     if (options.label) criteria.keyword = options.label;
     const found = (await client.search(criteria, { uid: true })) || [];
-    let uids = [...found].sort((a, b) => b - a);
-    const total = uids.length;
-    if (options.beforeUid !== undefined) {
-      const before = options.beforeUid;
-      uids = uids.filter((uid) => uid < before);
+    const total = found.length;
+    const dates =
+      found.length > 0
+        ? await arrivalDates(client, options.folder, uidValidity, found)
+        : new Map<number, number>();
+    const position = (uid: number): ListPosition => ({ date: dates.get(uid) ?? 0, uid });
+    let uids = [...found].sort(compareArrival(dates));
+    if (options.before !== undefined) {
+      const before = options.before;
+      uids = uids.filter((uid) => {
+        const date = dates.get(uid) ?? 0;
+        return date < before.date || (date === before.date && uid < before.uid);
+      });
     }
+    const rank = new Map(uids.map((uid, i) => [uid, i]));
 
     const messages: MessageSummary[] = [];
     let scanned = 0;
@@ -379,7 +457,7 @@ export async function listMessages(client: ImapFlow, options: ListOptions): Prom
       index += batch.length;
       scanned += batch.length;
       const fetched = await fetchSummaries(client, batch);
-      fetched.sort((a, b) => b.uid - a.uid);
+      fetched.sort((a, b) => (rank.get(a.uid) ?? 0) - (rank.get(b.uid) ?? 0));
       for (const msg of fetched) {
         const summary = summarize(options.folder, uidValidity, msg);
         if (options.filter === 'attachments' && !summary.hasAttachments) continue;
@@ -387,19 +465,21 @@ export async function listMessages(client: ImapFlow, options: ListOptions): Prom
         if (messages.length === options.limit) break;
       }
     }
-    let nextBeforeUid: number | null = null;
+    let nextBefore: ListPosition | null = null;
     const last = messages.at(-1);
     if (messages.length === options.limit && last) {
       // Page pleine : la suite commence sous le dernier message renvoyé.
-      nextBeforeUid = uids.some((uid) => uid < last.ref.uid) ? last.ref.uid : null;
+      const lastRank = rank.get(last.ref.uid) ?? uids.length;
+      nextBefore = lastRank < uids.length - 1 ? position(last.ref.uid) : null;
     } else if (index < uids.length) {
       // Limite d'examen atteinte (filtre « pièces jointes ») : reprendre sous le dernier examiné.
-      nextBeforeUid = uids[index - 1] ?? null;
+      const examined = uids[index - 1];
+      nextBefore = examined !== undefined ? position(examined) : null;
     }
     return {
       uidValidity,
       messages,
-      nextBeforeUid,
+      nextBefore,
       total,
     };
   });

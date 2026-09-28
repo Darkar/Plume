@@ -19,7 +19,10 @@ describe('identifiants opaques', () => {
   it('aller-retour message, pièce jointe et curseur', () => {
     expect(decodeMessageId(encodeMessageId(ref))).toEqual(ref);
     expect(decodeAttachmentId(encodeAttachmentId(ref, '1.2.3'))).toEqual({ ref, part: '1.2.3' });
-    expect(decodeCursor(encodeCursor('17', 99))).toEqual({ uidValidity: '17', beforeUid: 99 });
+    expect(decodeCursor(encodeCursor('17', { date: 1_790_000_000_000, uid: 99 }))).toEqual({
+      uidValidity: '17',
+      before: { date: 1_790_000_000_000, uid: 99 },
+    });
   });
 
   it.each([
@@ -36,6 +39,16 @@ describe('identifiants opaques', () => {
     ['A'.repeat(2000), 'trop long'],
   ])('rejette un identifiant de message invalide (%s / %s)', (id) => {
     expect(decodeMessageId(id)).toBeNull();
+  });
+
+  it.each([
+    [b64(['17', 99]), 'ancien format sans date'],
+    [b64(['17', -1, 99]), 'date négative'],
+    [b64(['17', 1.5, 99]), 'date décimale'],
+    [b64(['17', 1, 0]), 'UID nul'],
+    [b64(['x', 1, 1]), 'UIDVALIDITY non numérique'],
+  ])('rejette un curseur invalide (%s / %s)', (cursor) => {
+    expect(decodeCursor(cursor)).toBeNull();
   });
 
   it.each(['1;DELETE', '1..2', '', '1.', 'HEADER', '1'.repeat(10)])(
