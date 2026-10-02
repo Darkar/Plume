@@ -434,7 +434,9 @@ describe('composeur', () => {
     renderApp('/');
     await user.click(await screen.findByRole('button', { name: 'Nouveau message' }));
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }),
+    );
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
@@ -446,7 +448,9 @@ describe('composeur', () => {
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('À'), 'alice@exemple.com, pas-une-adresse');
     await user.type(within(dialog).getByLabelText('Objet'), 'Idée');
-    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }),
+    );
     const confirm = await screen.findByRole('alertdialog', {
       name: 'Enregistrer ce message dans les brouillons ?',
     });
@@ -455,7 +459,9 @@ describe('composeur', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.getByRole('dialog')).toBeTruthy();
 
-    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }),
+    );
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', {
         name: 'Enregistrer le brouillon',
@@ -479,7 +485,9 @@ describe('composeur', () => {
     await user.click(await screen.findByRole('button', { name: 'Nouveau message' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('Objet'), 'À jeter');
-    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }),
+    );
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }),
     );
