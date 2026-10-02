@@ -390,6 +390,84 @@ describe('envoi', () => {
   });
 });
 
+describe('brouillons', () => {
+  it('enregistre, relit, remplace puis envoie un brouillon (supprimé après envoi)', async () => {
+    const first = await sacha.request('POST', '/api/v1/messages/drafts', {
+      to: [{ name: 'Alice', address: 'alice@exemple.com' }],
+      bcc: [{ name: '', address: 'cache@exemple.org' }],
+      subject: 'Brouillon v1',
+      html: '<p>Première version</p><script>alert(1)</script>',
+    });
+    expect(first.statusCode).toBe(200);
+    const id1 = first.json().id as string;
+    expect(id1).toBeTruthy();
+
+    const saved = (await find(sacha, 'Brouillon v1', 'Drafts')) as { id: string; draft?: boolean };
+    expect(saved?.draft).toBe(true);
+    const detail = (await sacha.request('GET', `/api/v1/messages/${id1}`)).json();
+    expect(detail.to).toEqual([{ name: 'Alice', address: 'alice@exemple.com' }]);
+    expect(detail.bcc).toEqual([{ name: '', address: 'cache@exemple.org' }]);
+    const body = (await sacha.request('GET', `/api/v1/messages/${id1}/draft`)).json();
+    expect(body.html).toContain('Première version');
+    expect(body.html).not.toContain('<script');
+
+    const second = await sacha.request('POST', '/api/v1/messages/drafts', {
+      to: [{ name: 'Alice', address: 'alice@exemple.com' }],
+      subject: 'Brouillon v2',
+      html: '<p>Seconde version</p>',
+      replaces: id1,
+    });
+    expect(second.statusCode).toBe(200);
+    const id2 = second.json().id as string;
+    expect(await find(sacha, 'Brouillon v1', 'Drafts')).toBeUndefined();
+    expect(await find(sacha, 'Brouillon v2', 'Drafts')).toBeDefined();
+
+    const sent = await sacha.request('POST', '/api/v1/messages/send', {
+      to: [{ name: 'Alice', address: 'alice@exemple.com' }],
+      subject: 'Brouillon v2',
+      html: '<p>Seconde version</p>',
+      draftId: id2,
+    });
+    expect(sent.statusCode).toBe(200);
+    expect(await find(sacha, 'Brouillon v2', 'Drafts')).toBeUndefined();
+    await latestSource(ALICE, 'Subject: Brouillon v2');
+  });
+
+  it('accepte un brouillon sans destinataire', async () => {
+    const res = await sacha.request('POST', '/api/v1/messages/drafts', {
+      subject: 'Idée en vrac',
+      html: '<p>À compléter</p>',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(await find(sacha, 'Idée en vrac', 'Drafts')).toBeDefined();
+  });
+
+  it('ne remplace ni ne relit comme brouillon un message ordinaire', async () => {
+    const inbox = (await find(sacha, 'Premier'))!;
+    const replace = await sacha.request('POST', '/api/v1/messages/drafts', {
+      subject: 'Tentative',
+      html: 'x',
+      replaces: inbox.id,
+    });
+    expect(replace.statusCode).toBe(400);
+    expect(replace.json().error).toBe('not_a_draft');
+    expect(await find(sacha, 'Premier')).toBeDefined();
+    expect((await sacha.request('GET', `/api/v1/messages/${inbox.id}/draft`)).statusCode).toBe(404);
+  });
+
+  it('refuse de supprimer après envoi un message qui n’est pas un brouillon', async () => {
+    const inbox = (await find(sacha, 'Troisième'))!;
+    const sent = await sacha.request('POST', '/api/v1/messages/send', {
+      to: [{ address: 'alice@exemple.com' }],
+      subject: 'Envoi avec faux brouillon',
+      html: 'x',
+      draftId: inbox.id,
+    });
+    expect(sent.statusCode).toBe(200);
+    expect(await find(sacha, 'Troisième')).toBeDefined();
+  });
+});
+
 describe('préférences', () => {
   it('renvoie les valeurs par défaut puis enregistre une signature nettoyée', async () => {
     expect((await sacha.request('GET', '/api/v1/me/preferences')).json()).toMatchObject({

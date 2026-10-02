@@ -13,7 +13,7 @@ import {
  */
 
 export class ActionError extends Error {
-  constructor(readonly code: 'invalid_label' | 'invalid_folder' | 'same_folder') {
+  constructor(readonly code: 'invalid_label' | 'invalid_folder' | 'same_folder' | 'not_a_draft') {
     super(code);
     this.name = 'ActionError';
   }
@@ -170,6 +170,63 @@ export async function deleteMessage(
 }
 
 /** Copie un message envoyé dans le dossier « Envoyés ». */
+/**
+ * Supprime définitivement un brouillon. Refusé (`not_a_draft`) si le message n'est pas dans le
+ * dossier des brouillons ou ne porte pas le drapeau \\Draft : jamais un autre message.
+ */
+export async function deleteDraft(client: ImapFlow, ref: MessageRef): Promise<void> {
+  const drafts = await specialFolder(client, '\\Drafts');
+  if (ref.folder !== drafts) throw new ActionError('not_a_draft');
+  await withWriteLock(client, ref, async () => {
+    const msg = await client.fetchOne(String(ref.uid), { uid: true, flags: true }, { uid: true });
+    const flags = [...((msg && msg.flags) || [])].map((f) => f.toLowerCase());
+    if (!flags.includes('\\draft')) throw new ActionError('not_a_draft');
+    await client.messageDelete(String(ref.uid), { uid: true });
+  });
+}
+
+/**
+ * Enregistre un brouillon dans le dossier « \\Drafts » (créé au besoin), visible par les autres
+ * clients de messagerie. Le brouillon remplacé est supprimé après l'enregistrement du nouveau.
+ * Renvoie la référence du nouveau brouillon si le serveur la communique (UIDPLUS).
+ */
+export async function saveDraft(
+  client: ImapFlow,
+  raw: Buffer,
+  replaces?: MessageRef,
+): Promise<MessageRef | null> {
+  const drafts = await specialFolder(client, '\\Drafts');
+  if (replaces && replaces.folder !== drafts) throw new ActionError('not_a_draft');
+  const appended = await client.append(drafts, raw, ['\\Draft', '\\Seen']);
+  if (replaces) {
+    try {
+      await deleteDraft(client, replaces);
+    } catch (error) {
+      // Ancien brouillon déjà supprimé (autre client) : le nouveau est enregistré, c'est l'essentiel.
+      if (!(error instanceof MailboxError)) throw error;
+    }
+  }
+  if (appended && appended.uid !== undefined && appended.uidValidity !== undefined) {
+    return { folder: drafts, uidValidity: String(appended.uidValidity), uid: appended.uid };
+  }
+  // Serveur sans UIDPLUS : on retrouve le brouillon par son Message-ID.
+  const messageId = /^Message-ID:\s*(<[^>\r\n]+>)/im.exec(
+    raw.subarray(0, 8192).toString('latin1'),
+  )?.[1];
+  if (!messageId) return null;
+  const lock = await client.getMailboxLock(drafts);
+  try {
+    const found = await client.search({ header: { 'message-id': messageId } }, { uid: true });
+    const uid = found && found.length > 0 ? Math.max(...found) : undefined;
+    const mailbox = client.mailbox;
+    return uid !== undefined && mailbox
+      ? { folder: drafts, uidValidity: String(mailbox.uidValidity), uid }
+      : null;
+  } finally {
+    lock.release();
+  }
+}
+
 export async function appendSent(client: ImapFlow, raw: Buffer): Promise<void> {
   const sent = await specialFolder(client, '\\Sent');
   await client.append(sent, raw, ['\\Seen']);

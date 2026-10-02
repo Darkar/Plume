@@ -1368,6 +1368,49 @@
         ]
       }
     },
+    "/messages/{id}/draft": {
+      "get": {
+        "operationId": "getMessagesIdDraft",
+        "summary": "Corps d’un brouillon, pour le reprendre",
+        "tags": [
+          "mail"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 1500,
+              "description": "Identifiant opaque de message"
+            }
+          }
+        ]
+      }
+    },
     "/messages/{id}/quote": {
       "get": {
         "operationId": "getMessagesIdQuote",
@@ -2080,6 +2123,174 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "draftId": {
+                    "type": "string",
+                    "maxLength": 1500
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/drafts": {
+      "post": {
+        "operationId": "postMessagesDrafts",
+        "summary": "Enregistre ou remplace un brouillon (dossier des brouillons)",
+        "tags": [
+          "mail"
+        ],
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "default": [],
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "address": {
+                          "type": "string",
+                          "maxLength": 254
+                        }
+                      },
+                      "required": [
+                        "address"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "cc": {
+                    "default": [],
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "address": {
+                          "type": "string",
+                          "maxLength": 254
+                        }
+                      },
+                      "required": [
+                        "address"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "bcc": {
+                    "default": [],
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "address": {
+                          "type": "string",
+                          "maxLength": 254
+                        }
+                      },
+                      "required": [
+                        "address"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "subject": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 998
+                  },
+                  "html": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 2097152
+                  },
+                  "inReplyTo": {
+                    "type": "string",
+                    "maxLength": 1500
+                  },
+                  "attachments": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "filename": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 255
+                        },
+                        "contentType": {
+                          "default": "application/octet-stream",
+                          "type": "string",
+                          "maxLength": 127
+                        },
+                        "data": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9+/]*={0,2}$"
+                        }
+                      },
+                      "required": [
+                        "filename",
+                        "data"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "replaces": {
+                    "type": "string",
+                    "maxLength": 1500
                   }
                 },
                 "additionalProperties": false

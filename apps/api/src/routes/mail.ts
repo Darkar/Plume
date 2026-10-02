@@ -12,6 +12,8 @@ import {
   SafeFetchError,
   BODY_HEIGHT_SCRIPT_HASH,
   sanitizeEmailHtml,
+  sanitizeOutgoingHtml,
+  escapeHtml,
   sniffImageType,
   textToSafeHtml,
   type AttachmentInfo,
@@ -125,6 +127,7 @@ function detailView(detail: MessageDetail) {
   return {
     ...summaryView(detail),
     cc: detail.cc,
+    bcc: detail.bcc,
     replyTo: detail.replyTo,
     messageId: detail.messageId,
     inReplyTo: detail.inReplyTo,
@@ -244,6 +247,24 @@ export async function mailRoutes(app: FastifyInstance) {
       remoteImagesPolicy: services.config().security.remote_images,
       blockedRemoteImages,
     };
+  });
+
+  /**
+   * Corps d'un brouillon, pour le reprendre dans l'éditeur : HTML nettoyé comme un message
+   * sortant (le composeur l'insère tel quel). Réservé aux messages marqués \\Draft.
+   */
+  app.get('/messages/:id/draft', auth, async (request) => {
+    const session = request.session as SessionData;
+    const ref = messageRef(request);
+    const content = await withMailbox(session.userId, (client) =>
+      getMessage(client, ref, { markSeen: false, maxBodyBytes: MAX_BODY_BYTES }),
+    );
+    if (!content.detail.draft) throw notFound();
+    const html =
+      content.html !== null
+        ? sanitizeOutgoingHtml(content.html)
+        : escapeHtml(content.text ?? '').replace(/\r?\n/g, '<br>');
+    return { html };
   });
 
   /** Texte brut du message, pour la citation dans une réponse ou un transfert. */

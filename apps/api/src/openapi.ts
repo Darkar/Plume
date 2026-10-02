@@ -1,7 +1,14 @@
 import { ruleSchema } from '@plume/rules';
 import { z } from 'zod';
 import { SESSION_COOKIE } from './plugins/session.js';
-import { avatarBody, flagsBody, moveBody, sendBody, snoozeBody } from './routes/actions.js';
+import {
+  avatarBody,
+  draftBody,
+  flagsBody,
+  moveBody,
+  sendBody,
+  snoozeBody,
+} from './routes/actions.js';
 import { accountBody, loginBody, totpBody } from './routes/auth.js';
 import { attachmentQuery, bodyQuery, labelParam, listQuery, proxyQuery } from './routes/mail.js';
 import { codeBody } from './routes/me.js';
@@ -215,6 +222,13 @@ export const API_ROUTES: RouteDoc[] = [
   },
   {
     method: 'get',
+    path: '/messages/{id}/draft',
+    tag: 'mail',
+    auth: 'session',
+    summary: 'Corps d’un brouillon, pour le reprendre',
+  },
+  {
+    method: 'get',
     path: '/messages/{id}/quote',
     tag: 'mail',
     auth: 'session',
@@ -309,6 +323,14 @@ export const API_ROUTES: RouteDoc[] = [
     auth: 'session',
     summary: 'Envoie un message',
     body: sendBody,
+  },
+  {
+    method: 'post',
+    path: '/messages/drafts',
+    tag: 'mail',
+    auth: 'session',
+    summary: 'Enregistre ou remplace un brouillon (dossier des brouillons)',
+    body: draftBody,
   },
   {
     method: 'get',

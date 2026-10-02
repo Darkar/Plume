@@ -53,12 +53,16 @@ export interface MessageSummary {
   seen: boolean;
   flagged: boolean;
   answered: boolean;
+  /** Brouillon (drapeau \\Draft). */
+  draft: boolean;
   keywords: string[];
   hasAttachments: boolean;
 }
 
 export interface MessageDetail extends MessageSummary {
   cc: Address[];
+  /** Copie cachée : présente seulement dans les brouillons (jamais dans un message reçu). */
+  bcc: Address[];
   replyTo: Address[];
   messageId: string | null;
   inReplyTo: string | null;
@@ -301,6 +305,7 @@ function summarize(folder: string, uidValidity: string, msg: FetchMessageObject)
     seen: lower.has('\\seen'),
     flagged: lower.has('\\flagged'),
     answered: lower.has('\\answered'),
+    draft: lower.has('\\draft'),
     keywords: flags.filter((f) => !SYSTEM_FLAGS.has(f.toLowerCase()) && !f.startsWith('\\')),
     hasAttachments: attachments.some((a) => !a.inline),
   };
@@ -585,6 +590,7 @@ export async function getMessage(
       detail: {
         ...summary,
         cc: addresses(envelope?.cc),
+        bcc: addresses(envelope?.bcc),
         replyTo: addresses(envelope?.replyTo),
         messageId: envelope?.messageId ?? null,
         inReplyTo: envelope?.inReplyTo ?? null,

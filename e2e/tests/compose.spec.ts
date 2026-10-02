@@ -64,3 +64,47 @@ test('signature, envoi, réception, archivage et annulation', async ({ browser }
   await expect(alice.getByText('Message envoyé.')).toBeVisible();
   await alice.close();
 });
+
+test('fermeture sans envoi : brouillon enregistré, repris puis envoyé', async ({ page }) => {
+  test.setTimeout(120_000);
+  const subject = `Brouillon ${Date.now()}`;
+  await login(page, USER.email, USER.password);
+
+  await page.getByRole('button', { name: 'Nouveau message' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('À', { exact: true }).fill('Alice <alice@exemple.com>');
+  await dialog.getByLabel('Objet').fill(subject);
+  const body = dialog.getByRole('textbox', { name: 'Corps du message' });
+  await body.click();
+  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.type('Texte à finir plus tard.');
+
+  // La fermeture d'un message modifié propose de l'enregistrer.
+  await dialog.getByRole('button', { name: 'Fermer la fenêtre de rédaction' }).click();
+  await expect(page.getByText('Enregistrer ce message dans les brouillons ?')).toBeVisible();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Enregistrer le brouillon' })
+    .click();
+  await expect(page.getByText('Brouillon enregistré.')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // Le brouillon figure dans le dossier Brouillons et se reprend tel quel.
+  await page.getByRole('link', { name: /Brouillons|Drafts/ }).click();
+  const row = page.getByRole('button').filter({ hasText: subject });
+  await expect(row).toBeVisible({ timeout: 20_000 });
+  await row.click();
+  await page.getByRole('button', { name: 'Reprendre le brouillon' }).click();
+  const resumed = page.getByRole('dialog');
+  await expect(resumed.getByLabel('Objet')).toHaveValue(subject);
+  await expect(resumed.getByRole('textbox', { name: 'Corps du message' })).toContainText(
+    'Texte à finir plus tard.',
+  );
+  await resumed.getByRole('button', { name: 'Envoyer' }).click();
+  await expect(page.getByText('Message envoyé.')).toBeVisible();
+
+  // Envoyé : le brouillon a disparu.
+  await expect(page.getByRole('button').filter({ hasText: subject })).toHaveCount(0, {
+    timeout: 20_000,
+  });
+});

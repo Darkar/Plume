@@ -25,6 +25,8 @@ export interface MessageSummary {
   seen: boolean;
   flagged: boolean;
   answered: boolean;
+  /** Brouillon (drapeau \\Draft). */
+  draft?: boolean;
   keywords: string[];
   hasAttachments: boolean;
 }
@@ -40,6 +42,8 @@ export interface Attachment {
 
 export interface MessageDetail extends MessageSummary {
   cc: Address[];
+  /** Copie cachée : renseignée seulement pour les brouillons. */
+  bcc?: Address[];
   replyTo: Address[];
   messageId: string | null;
   attachments: Attachment[];
@@ -128,10 +132,20 @@ export interface OutgoingMessage {
   html: string;
   inReplyTo?: string;
   attachments: { filename: string; contentType: string; data: string }[];
+  /** Brouillon d'origine : supprimé une fois le message envoyé. */
+  draftId?: string;
 }
 
 export const sendMessage = (message: OutgoingMessage) =>
   api<{ status: 'sent' }>('POST', '/messages/send', message);
+
+/** Enregistre (ou remplace) un brouillon ; renvoie son identifiant. */
+export const saveDraft = (message: Omit<OutgoingMessage, 'draftId'> & { replaces?: string }) =>
+  api<{ id: string | null }>('POST', '/messages/drafts', message);
+
+/** Corps HTML d'un brouillon, nettoyé, pour le reprendre dans l'éditeur. */
+export const fetchDraftBody = (id: string) =>
+  api<{ html: string }>('GET', `/messages/${encodeURIComponent(id)}/draft`);
 
 export const fetchQuote = (id: string) =>
   api<{ text: string }>('GET', `/messages/${encodeURIComponent(id)}/quote`);

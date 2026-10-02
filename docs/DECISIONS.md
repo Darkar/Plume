@@ -707,3 +707,19 @@ lui sans modification et que chaque compte garde ses propres données.
   (IMAPSieve, rspamd…) déclenché par le déplacement ; Plume n'analyse pas les messages.
 - **Message ouvert** : sous 1 100 px de large, l'ouverture d'un message masque la liste ; son
   titre se glisse alors vers un dossier ou un libellé (mêmes données que la ligne de liste).
+
+### D-067 — Brouillons
+
+- Fermer une fenêtre de rédaction **modifiée** (destinataires, objet, corps ou pièces jointes
+  différents de l'état d'ouverture) demande « Enregistrer le brouillon / Supprimer / Continuer
+  la rédaction » ; une fenêtre intacte se ferme sans question. Le reste de la fenêtre est
+  inerte pendant la question. Un bouton « Enregistrer le brouillon » existe aussi en pied.
+- Stockage **IMAP**, dans le dossier d'usage spécial `\Drafts` (créé sous `Drafts` au besoin),
+  drapeaux `\Draft \Seen` : les brouillons restent visibles des autres clients. Aucun stockage
+  côté Plume. `POST /messages/drafts` n'exige aucun destinataire ; il conserve le Cci (jamais
+  présent dans un message envoyé) et remplace l'ancienne version (`replaces`), qui doit être
+  un message `\Draft` du dossier Brouillons (sinon 400 `not_a_draft`).
+- **Reprise** : `GET /messages/:id/draft` renvoie le corps nettoyé (`sanitizeOutgoingHtml`) ;
+  les pièces jointes sont rechargées, la signature n'est pas rajoutée. L'envoi passe
+  `draftId` : le brouillon est supprimé après l'envoi (au mieux, un échec n'annule pas
+  l'envoi) et une réponse reprise garde ses en-têtes de fil (`In-Reply-To`, `References`).

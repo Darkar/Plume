@@ -241,3 +241,33 @@
     max-height: none;
   }
 }
+
+.saveDraft {
+  margin-left: auto;
+}
+
+/* Fermeture d'un message non envoyé : proposition d'enregistrer le brouillon. */
+.confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  padding: 24px;
+  text-align: center;
+  background: var(--color-surface-muted);
+}
+
+.confirm p {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}

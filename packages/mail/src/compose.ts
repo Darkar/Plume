@@ -150,6 +150,8 @@ export interface OutgoingMessage {
   inReplyTo?: string;
   references?: string[];
   attachments: OutgoingAttachment[];
+  /** Brouillon : la copie cachée est conservée dans l'en-tête (le message n'est pas envoyé). */
+  keepBcc?: boolean;
   /** Marqueurs internes (moteur de règles) : jamais exposés à l'API. */
   automatic?: 'auto-replied' | 'forwarded' | 'digest';
 }
@@ -162,7 +164,9 @@ export async function buildMime(message: OutgoingMessage): Promise<Buffer> {
     from: clean(message.from),
     to: message.to.map(clean),
     cc: message.cc.map(clean),
-    // Les destinataires en copie cachée ne figurent que dans l'enveloppe SMTP.
+    // Les destinataires en copie cachée ne figurent que dans l'enveloppe SMTP, sauf dans un
+    // brouillon enregistré (jamais envoyé tel quel).
+    ...(message.keepBcc ? { bcc: message.bcc.map(clean) } : {}),
     subject: headerSafe(message.subject, 500),
     html,
     text: htmlToText(html),
@@ -189,7 +193,10 @@ export async function buildMime(message: OutgoingMessage): Promise<Buffer> {
     disableFileAccess: true,
     disableUrlAccess: true,
   });
-  return composer.compile().build();
+  const node = composer.compile();
+  // Nodemailer retire l'en-tête Bcc à la construction, sauf demande explicite.
+  if (message.keepBcc) node.keepBcc = true;
+  return node.build();
 }
 
 export interface SmtpCredentials {

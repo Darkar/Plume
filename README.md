@@ -49,7 +49,7 @@ exécuté côté serveur.
   glisser-déposer), reporter à plus tard, marquer lu/non lu, avec « Annuler » pendant quelques
   secondes.
 - **Rédaction** : éditeur riche, réponse / réponse à tous / transfert avec citation, signature,
-  pièces jointes, fenêtre agrandissable.
+  pièces jointes, fenêtre agrandissable, brouillons (proposés à la fermeture, repris ensuite).
 - **Comptes** : plusieurs comptes dans la même session avec bascule, second facteur TOTP
   (facultatif ou obligatoire), codes de secours, déconnexion de tous les appareils.
 - **Règles** : trier, libeller, transférer, répondre automatiquement — exécutées par le serveur

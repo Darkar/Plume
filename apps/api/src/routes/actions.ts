@@ -4,10 +4,13 @@ import {
   archiveMessage,
   junkMessage,
   buildMime,
+  deleteDraft,
   deleteMessage,
+  getMessage,
   getReplyInfo,
   isValidRecipient,
   moveMessage,
+  saveDraft,
   sendRaw,
   snoozeMessage,
   wakeMessage,
@@ -28,6 +31,8 @@ import { invalidateLabels, mapMailError } from './mail.js';
 const MAX_RECIPIENTS = 100;
 /** Limite d'envoi par utilisateur (anti-abus d'un compte compromis). */
 const SEND_LIMIT = { max: 200, windowMs: 60 * 60_000 };
+/** Enregistrements de brouillons par utilisateur et par heure. */
+const DRAFT_LIMIT = { max: 600, windowMs: 60 * 60_000 };
 
 export const flagsBody = z
   .strictObject({
@@ -81,6 +86,13 @@ export const sendBody = z.strictObject({
     )
     .max(20)
     .default([]),
+  /** Brouillon d'origine (opaque) : supprimé une fois le message envoyé. */
+  draftId: z.string().max(1500).optional(),
+});
+
+/** Brouillon : même contenu qu'un envoi (destinataires facultatifs), et le brouillon remplacé. */
+export const draftBody = sendBody.omit({ draftId: true }).extend({
+  replaces: z.string().max(1500).optional(),
 });
 
 export async function actionRoutes(app: FastifyInstance) {
@@ -106,6 +118,27 @@ export async function actionRoutes(app: FastifyInstance) {
       return mapMailError(services, userId, error);
     }
   }
+
+  /** Pièces jointes décodées, limites de taille appliquées (413 au-delà). */
+  function decodeAttachments(list: z.infer<typeof sendBody>['attachments']) {
+    const limits = services.config().security;
+    const attachments = list.map((a) => ({
+      filename: a.filename,
+      contentType: a.contentType,
+      content: Buffer.from(a.data, 'base64'),
+    }));
+    if (attachments.some((a) => a.content.length > limits.max_attachment_size)) {
+      throw new HttpError(413, 'attachment_too_large');
+    }
+    if (attachments.reduce((sum, a) => sum + a.content.length, 0) > limits.max_upload_total) {
+      throw new HttpError(413, 'attachments_too_large');
+    }
+    return attachments;
+  }
+
+  /** Taille maximale du JSON d'un envoi ou d'un brouillon (pièces jointes en base64, +33 %). */
+  const composeBodyLimit = () =>
+    Math.ceil((services.config().security.max_upload_total * 4) / 3) + 3 * 1024 * 1024;
 
   app.patch('/messages/:id', auth, async (request, reply) => {
     const session = request.session as SessionData;
@@ -245,12 +278,54 @@ export async function actionRoutes(app: FastifyInstance) {
     };
   });
 
+  /** Enregistre (ou remplace) un brouillon dans le dossier des brouillons. */
+  app.post('/messages/drafts', { ...auth, bodyLimit: composeBodyLimit() }, async (request) => {
+    const session = request.session as SessionData;
+    const parsed = draftBody.safeParse(request.body);
+    if (!parsed.success) throw badRequest();
+    const body = parsed.data;
+    if (body.to.length + body.cc.length + body.bcc.length > MAX_RECIPIENTS) {
+      throw badRequest('too_many_recipients');
+    }
+    const attachments = decodeAttachments(body.attachments);
+    if (
+      await services.limiter.hit('draft', session.userId, DRAFT_LIMIT.max, DRAFT_LIMIT.windowMs)
+    ) {
+      throw new HttpError(429, 'rate_limited');
+    }
+    const replaces = body.replaces ? decodeMessageId(body.replaces) : null;
+    if (body.replaces && !replaces) throw badRequest('invalid_draft');
+    const replyRef = body.inReplyTo ? decodeMessageId(body.inReplyTo) : null;
+    if (body.inReplyTo && !replyRef) throw badRequest('invalid_reply');
+
+    const prefs = await services.preferences.get(session.userId);
+    const saved = await withClient(session.userId, async (client) => {
+      const replyInfo = replyRef ? await getReplyInfo(client, replyRef) : null;
+      const raw = await buildMime({
+        from: { name: prefs.displayName ?? '', address: session.email },
+        to: body.to,
+        cc: body.cc,
+        bcc: body.bcc,
+        keepBcc: true,
+        subject: body.subject,
+        html: body.html,
+        inReplyTo: replyInfo?.messageId ?? undefined,
+        references: replyInfo
+          ? [...replyInfo.references, ...(replyInfo.messageId ? [replyInfo.messageId] : [])]
+          : undefined,
+        attachments,
+      });
+      return saveDraft(client, raw, replaces ?? undefined);
+    });
+    return { id: saved ? encodeMessageId(saved) : null };
+  });
+
   app.post(
     '/messages/send',
     {
       ...auth,
       // Pièces jointes en base64 dans le JSON (+33 %) : limite propre à cette route.
-      bodyLimit: Math.ceil((services.config().security.max_upload_total * 4) / 3) + 3 * 1024 * 1024,
+      bodyLimit: composeBodyLimit(),
     },
     async (request) => {
       const session = request.session as SessionData;
@@ -261,37 +336,41 @@ export async function actionRoutes(app: FastifyInstance) {
       if (recipients.length === 0) throw badRequest('no_recipient');
       if (recipients.length > MAX_RECIPIENTS) throw badRequest('too_many_recipients');
 
-      const limits = services.config().security;
-      const attachments = body.attachments.map((a) => ({
-        filename: a.filename,
-        contentType: a.contentType,
-        content: Buffer.from(a.data, 'base64'),
-      }));
-      if (attachments.some((a) => a.content.length > limits.max_attachment_size)) {
-        throw new HttpError(413, 'attachment_too_large');
-      }
-      if (attachments.reduce((sum, a) => sum + a.content.length, 0) > limits.max_upload_total) {
-        throw new HttpError(413, 'attachments_too_large');
-      }
+      const attachments = decodeAttachments(body.attachments);
       if (await services.limiter.hit('send', session.userId, SEND_LIMIT.max, SEND_LIMIT.windowMs)) {
         throw new HttpError(429, 'rate_limited');
       }
 
       const replyRef = body.inReplyTo ? decodeMessageId(body.inReplyTo) : null;
       if (body.inReplyTo && !replyRef) throw badRequest('invalid_reply');
+      const draftRef = body.draftId ? decodeMessageId(body.draftId) : null;
+      if (body.draftId && !draftRef) throw badRequest('invalid_draft');
 
       let relay = false;
       try {
         const smtp = await services.mail.smtpCredentials(session.userId);
         relay = smtp.relay;
         const prefs = await services.preferences.get(session.userId);
-        const client = replyRef ? await services.mail.pool.acquire(session.userId) : null;
+        const client =
+          replyRef || draftRef ? await services.mail.pool.acquire(session.userId) : null;
         const replyInfo = replyRef && client ? await getReplyInfo(client, replyRef) : null;
-        const references = replyInfo
+        let references = replyInfo
           ? [...replyInfo.references, ...(replyInfo.messageId ? [replyInfo.messageId] : [])].slice(
               -20,
             )
           : undefined;
+        // Réponse reprise depuis un brouillon : le fil est celui enregistré dans le brouillon.
+        let inReplyTo = replyInfo?.messageId ?? undefined;
+        if (!replyRef && draftRef && client) {
+          const saved = await getMessage(client, draftRef, {
+            markSeen: false,
+            maxBodyBytes: 1024,
+          }).catch(() => null);
+          if (saved?.detail.inReplyTo) {
+            inReplyTo = saved.detail.inReplyTo;
+            references = [saved.detail.inReplyTo];
+          }
+        }
 
         const raw = await buildMime({
           // L'expéditeur est toujours l'adresse du compte connecté.
@@ -301,7 +380,7 @@ export async function actionRoutes(app: FastifyInstance) {
           bcc: body.bcc,
           subject: body.subject,
           html: body.html,
-          inReplyTo: replyInfo?.messageId ?? undefined,
+          inReplyTo,
           references,
           attachments,
         });
@@ -314,6 +393,17 @@ export async function actionRoutes(app: FastifyInstance) {
           if (replyRef) await updateFlags(imap, replyRef, { answered: true });
         } catch (error) {
           request.log.warn({ err: error }, 'copie dans « Envoyés » impossible');
+        }
+        // Le brouillon d'origine n'a plus lieu d'être : sans effet sur l'envoi en cas d'échec.
+        if (draftRef) {
+          try {
+            await deleteDraft(
+              client ?? (await services.mail.pool.acquire(session.userId)),
+              draftRef,
+            );
+          } catch (error) {
+            request.log.warn({ err: error }, 'suppression du brouillon envoyé impossible');
+          }
         }
         return { status: 'sent' };
       } catch (error) {

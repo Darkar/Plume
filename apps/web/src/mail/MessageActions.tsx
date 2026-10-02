@@ -19,6 +19,7 @@ import { SNOOZE_FOLDER } from './FolderList';
 import { Icon } from './Icon';
 import { LabelChip } from './MessageList';
 import styles from './MailPage.module.css';
+import { useResumeDraft } from './drafts';
 import { useReply } from './reply';
 import { useRelocate } from './useRelocate';
 import { minLocalInput, snoozeDate, type SnoozePreset } from './snooze';
@@ -56,6 +57,14 @@ export function MessageActions({
     queryFn: fetchFolders,
     staleTime: 30_000,
   });
+  const resumeDraft = useResumeDraft();
+  const [resuming, setResuming] = useState(false);
+  const resume = () => {
+    setResuming(true);
+    resumeDraft(message)
+      .catch(() => toast(t('common.error.generic')))
+      .finally(() => setResuming(false));
+  };
   const [label, setLabel] = useState('');
   const [labelError, setLabelError] = useState(false);
 
@@ -150,7 +159,11 @@ export function MessageActions({
   return (
     <>
       <div className={styles.toolbar} role="toolbar" aria-label={t('mail.list.title')}>
-        {inArchive ? (
+        {message.draft ? (
+          <Button icon="pen" className={styles.archive} onClick={resume} disabled={resuming}>
+            <span className={styles.archiveLabel}>{t('mail.draft.resume')}</span>
+          </Button>
+        ) : inArchive ? (
           <Button
             variant="secondary"
             icon="inbox"

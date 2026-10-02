@@ -65,6 +65,8 @@ beforeEach(() => {
         method: init.method ?? 'GET',
         body: init.body ? JSON.parse(String(init.body)) : null,
       });
+      if (url.endsWith('/messages/drafts')) return json(200, { id: 'YnJvdWlsbG9u' });
+      if (url.endsWith('/draft')) return json(200, { html: '<p>Corps du brouillon</p>' });
       if (url.endsWith('/junk')) return json(200, { id: 'c3BhbQ', folder: 'Junk', from: 'INBOX' });
       if (url.endsWith('/archive'))
         return json(200, { id: 'YXJjaGl2ZWQ', folder: 'Archives', from: 'INBOX' });
@@ -427,6 +429,97 @@ describe('glisser-déposer et réponse rapide', () => {
 });
 
 describe('composeur', () => {
+  it('fermeture sans modification : aucune question', async () => {
+    const user = userEvent.setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('button', { name: 'Nouveau message' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('fermeture d’un message modifié : propose de l’enregistrer dans les brouillons', async () => {
+    const user = userEvent.setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('button', { name: 'Nouveau message' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('À'), 'alice@exemple.com, pas-une-adresse');
+    await user.type(within(dialog).getByLabelText('Objet'), 'Idée');
+    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    const confirm = await screen.findByRole('alertdialog', {
+      name: 'Enregistrer ce message dans les brouillons ?',
+    });
+    // « Continuer la rédaction » : la fenêtre reste ouverte, rien n'est envoyé.
+    await user.click(within(confirm).getByRole('button', { name: 'Continuer la rédaction' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Enregistrer le brouillon',
+      }),
+    );
+    expect(await screen.findByText('Brouillon enregistré.')).toBeTruthy();
+    const saved = calls.find((c) => c.url.endsWith('/messages/drafts'))?.body as Record<
+      string,
+      unknown
+    >;
+    // Une adresse encore incomplète n'empêche pas d'enregistrer le brouillon.
+    expect(saved.to).toEqual([{ name: '', address: 'alice@exemple.com' }]);
+    expect(saved.subject).toBe('Idée');
+    expect(saved.replaces).toBeUndefined();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('« Supprimer » ferme sans rien enregistrer', async () => {
+    const user = userEvent.setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('button', { name: 'Nouveau message' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Objet'), 'À jeter');
+    await user.click(within(dialog).getByRole('button', { name: 'Fermer la fenêtre de rédaction' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(calls.some((c) => c.url.endsWith('/messages/drafts'))).toBe(false);
+  });
+
+  it('reprend un brouillon, puis l’envoie (le brouillon est désigné pour suppression)', async () => {
+    detailOverride = {
+      folder: 'Drafts',
+      draft: true,
+      to: [{ name: 'Alice', address: 'alice@exemple.com' }],
+      bcc: [{ name: '', address: 'cache@exemple.org' }],
+      subject: 'Brouillon en cours',
+      attachments: [],
+    };
+    const user = userEvent.setup();
+    renderApp('/?folder=Drafts&m=bWVzc2FnZS0x');
+    await user.click(await screen.findByRole('button', { name: 'Reprendre le brouillon' }));
+    const dialog = await screen.findByRole('dialog');
+    expect((within(dialog).getByLabelText('Objet') as HTMLInputElement).value).toBe(
+      'Brouillon en cours',
+    );
+    expect((within(dialog).getByLabelText('Cci') as HTMLInputElement).value).toBe(
+      'cache@exemple.org',
+    );
+    const body = within(dialog).getByRole('textbox', { name: 'Corps du message' });
+    await waitFor(() => expect(body.innerHTML).toContain('Corps du brouillon'));
+    // Signature non ajoutée une seconde fois.
+    expect(body.innerHTML).not.toContain('<p>Sacha</p>');
+    await user.click(within(dialog).getByRole('button', { name: 'Envoyer' }));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/messages/send'))).toBe(true));
+    const sent = calls.find((c) => c.url.endsWith('/messages/send'))?.body as Record<
+      string,
+      unknown
+    >;
+    expect(sent.draftId).toBe('bWVzc2FnZS0x');
+    expect(sent.bcc).toEqual([{ name: '', address: 'cache@exemple.org' }]);
+  });
+
   it('refuse d’emblée une pièce jointe trop volumineuse', async () => {
     const user = userEvent.setup();
     renderApp('/');
