@@ -119,7 +119,8 @@ no-store` par défaut.
   strict que la spécification). Exceptions possibles dans `osv-scanner.toml`, justifiées et datées.
 - `pnpm audit --audit-level high`.
 - Dépendances : `minimumReleaseAge` de 24 h dans pnpm (3 jours dans Renovate) pour limiter
-  l'exposition aux paquets compromis fraîchement publiés ; `esbuild` est forcé en ≥ 0.28.1.
+  l'exposition aux paquets compromis fraîchement publiés ; `esbuild` est forcé en ≥ 0.28.1
+  et `source-map-js` en ≥ 1.2.2 (outillage de couverture).
 - Les actions GitHub sont épinglées par empreinte de commit.
 
 ### D-017 — Désactivations ponctuelles de règles ESLint

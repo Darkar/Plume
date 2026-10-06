@@ -18,3 +18,4 @@ injectWorkspacePackages: true
 # Correctifs de sécurité imposés aux dépendances transitives (voir docs/DECISIONS.md).
 overrides:
   esbuild: ^0.28.1
+  source-map-js: ^1.2.2
