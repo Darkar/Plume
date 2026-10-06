@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
-import { Composer } from './Composer';
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { Composer, type CloseGuard } from './Composer';
 
 /** Pièce jointe prête à l'envoi (contenu en base64). */
 export interface PendingFile {
@@ -33,13 +33,20 @@ export function useCompose() {
 
 export function ComposeProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<(ComposeDraft & { key: number }) | null>(null);
+  // Rédaction en cours : elle se ferme d'abord (question « Enregistrer le brouillon ? » si besoin).
+  const guard = useRef<CloseGuard | null>(null);
   const open = useCallback((partial: Partial<ComposeDraft> = {}) => {
-    setDraft({ to: '', cc: '', subject: '', bodyHtml: '', ...partial, key: Date.now() });
+    const show = () =>
+      setDraft({ to: '', cc: '', subject: '', bodyHtml: '', ...partial, key: Date.now() });
+    if (guard.current) guard.current(show);
+    else show();
   }, []);
   return (
     <ComposeContext.Provider value={open}>
       {children}
-      {draft ? <Composer key={draft.key} draft={draft} onClose={() => setDraft(null)} /> : null}
+      {draft ? (
+        <Composer key={draft.key} draft={draft} guardRef={guard} onClose={() => setDraft(null)} />
+      ) : null}
     </ComposeContext.Provider>
   );
 }

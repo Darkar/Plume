@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type MutableRefObject,
+} from 'react';
 import { ApiError } from '../api/client';
 import { saveDraft, sendMessage } from '../api/mail';
 import { fetchPreferences, preferencesKey } from '../api/preferences';
@@ -26,7 +34,19 @@ const ERRORS: Record<string, MessageKey> = {
   rate_limited: 'mail.compose.error.rateLimited',
 };
 
-export function Composer({ draft, onClose }: { draft: ComposeDraft; onClose: () => void }) {
+/** Demande de fermeture venue de l'extérieur (autre rédaction ouverte) : `proceed` est appelé
+ * une fois la fenêtre fermée, après la question éventuelle. */
+export type CloseGuard = (proceed: () => void) => void;
+
+export function Composer({
+  draft,
+  onClose,
+  guardRef,
+}: {
+  draft: ComposeDraft;
+  onClose: () => void;
+  guardRef?: MutableRefObject<CloseGuard | null>;
+}) {
   const t = useT();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -119,7 +139,7 @@ export function Composer({ draft, onClose }: { draft: ComposeDraft; onClose: () 
         refetchType: draftId ? 'active' : 'none',
       });
       void queryClient.invalidateQueries({ queryKey: ['folders'] });
-      onClose();
+      leave();
     },
   });
   const [expanded, setExpanded] = useState(false);
@@ -140,19 +160,56 @@ export function Composer({ draft, onClose }: { draft: ComposeDraft; onClose: () 
       toast(t('mail.draft.saved'));
       void queryClient.invalidateQueries({ queryKey: ['messages'] });
       void queryClient.invalidateQueries({ queryKey: ['folders'] });
-      if (close) onClose();
+      if (close) leave();
     },
     onError: () => {
-      setConfirmClose(false);
+      cancelClose();
       toast(t('mail.draft.failed'));
     },
   });
 
-  /** Fermeture : propose d'enregistrer un message modifié et non envoyé. */
-  const requestClose = () => {
-    if (isDirty()) setConfirmClose(true);
-    else onClose();
+  // Action en attente de la fermeture (ouverture d'une autre rédaction).
+  const afterClose = useRef<(() => void) | null>(null);
+  const leave = () => {
+    const then = afterClose.current;
+    afterClose.current = null;
+    onClose();
+    then?.();
   };
+  const cancelClose = () => {
+    afterClose.current = null;
+    setConfirmClose(false);
+  };
+
+  /** Fermeture : propose d'enregistrer un message modifié et non envoyé. */
+  const requestClose = (then?: () => void) => {
+    afterClose.current = then ?? null;
+    if (isDirty()) setConfirmClose(true);
+    else leave();
+  };
+
+  // « Nouveau message », « Répondre »… pendant la rédaction passent par la même question.
+  const guard = useRef<CloseGuard>(requestClose);
+  guard.current = requestClose;
+  useEffect(() => {
+    if (!guardRef) return;
+    const own: CloseGuard = (proceed) => guard.current(proceed);
+    guardRef.current = own;
+    return () => {
+      if (guardRef.current === own) guardRef.current = null;
+    };
+  }, [guardRef]);
+
+  // Fermeture de l'onglet ou rechargement : avertissement du navigateur si rien n'est enregistré.
+  const dirty = useRef(isDirty);
+  dirty.current = isDirty;
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (dirty.current()) event.preventDefault();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
 
   const onFiles = async (event: ChangeEvent<HTMLInputElement>) => {
     const selected = [...(event.target.files ?? [])];
@@ -222,7 +279,7 @@ export function Composer({ draft, onClose }: { draft: ComposeDraft; onClose: () 
             pressed={expanded}
             onClick={() => setExpanded((v) => !v)}
           />
-          <IconButton icon="close" label={t('mail.compose.close')} onClick={requestClose} />
+          <IconButton icon="close" label={t('mail.compose.close')} onClick={() => requestClose()} />
         </div>
       </header>
       {confirmClose ? (
@@ -233,7 +290,7 @@ export function Composer({ draft, onClose }: { draft: ComposeDraft; onClose: () 
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.stopPropagation();
-              setConfirmClose(false);
+              cancelClose();
             }
           }}
         >
@@ -247,10 +304,10 @@ export function Composer({ draft, onClose }: { draft: ComposeDraft; onClose: () 
             >
               {t('mail.draft.save')}
             </Button>
-            <Button variant="secondary" onClick={onClose} disabled={draftSave.isPending}>
+            <Button variant="secondary" onClick={leave} disabled={draftSave.isPending}>
               {t('mail.draft.discard')}
             </Button>
-            <Button variant="ghost" onClick={() => setConfirmClose(false)}>
+            <Button variant="ghost" onClick={cancelClose}>
               {t('mail.draft.keepEditing')}
             </Button>
           </div>

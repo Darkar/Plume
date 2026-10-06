@@ -714,6 +714,9 @@ lui sans modification et que chaque compte garde ses propres données.
   différents de l'état d'ouverture) demande « Enregistrer le brouillon / Supprimer / Continuer
   la rédaction » ; une fenêtre intacte se ferme sans question. Le reste de la fenêtre est
   inerte pendant la question. Un bouton « Enregistrer le brouillon » existe aussi en pied.
+- La même question est posée quand une autre rédaction s'ouvre par-dessus (« Nouveau message »,
+  « Répondre »…) ; la nouvelle fenêtre ne s'ouvre qu'après. Fermer l'onglet ou recharger la
+  page avec une rédaction modifiée déclenche l'avertissement du navigateur (`beforeunload`).
 - Stockage **IMAP**, dans le dossier d'usage spécial `\Drafts` (créé sous `Drafts` au besoin),
   drapeaux `\Draft \Seen` : les brouillons restent visibles des autres clients. Aucun stockage
   côté Plume. `POST /messages/drafts` n'exige aucun destinataire ; il conserve le Cci (jamais

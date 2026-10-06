@@ -441,6 +441,50 @@ describe('composeur', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('« Nouveau message » pendant une rédaction modifiée pose la même question', async () => {
+    const user = userEvent.setup();
+    renderApp('/');
+    const newMessage = await screen.findByRole('button', { name: 'Nouveau message' });
+    await user.click(newMessage);
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Objet'), 'À ne pas perdre');
+    await user.click(newMessage);
+    const confirm = await screen.findByRole('alertdialog');
+    // « Continuer la rédaction » garde le message en cours.
+    await user.click(within(confirm).getByRole('button', { name: 'Continuer la rédaction' }));
+    expect((within(dialog).getByLabelText('Objet') as HTMLInputElement).value).toBe(
+      'À ne pas perdre',
+    );
+    // « Enregistrer le brouillon » : enregistré, puis la nouvelle rédaction s'ouvre, vide.
+    await user.click(newMessage);
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Enregistrer le brouillon',
+      }),
+    );
+    expect(await screen.findByText('Brouillon enregistré.')).toBeTruthy();
+    await waitFor(() =>
+      expect((screen.getByLabelText('Objet') as HTMLInputElement).value).toBe(''),
+    );
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(calls.filter((c) => c.url.endsWith('/messages/drafts'))).toHaveLength(1);
+  });
+
+  it('une rédaction modifiée demande confirmation avant de quitter la page', async () => {
+    const user = userEvent.setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('button', { name: 'Nouveau message' }));
+    const dialog = await screen.findByRole('dialog');
+    const leave = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(leave()).toBe(false);
+    await user.type(within(dialog).getByLabelText('Objet'), 'Brouillon');
+    expect(leave()).toBe(true);
+  });
+
   it('fermeture d’un message modifié : propose de l’enregistrer dans les brouillons', async () => {
     const user = userEvent.setup();
     renderApp('/');
