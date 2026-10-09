@@ -2,7 +2,7 @@
 
 ARG NODE_IMAGE=node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
 ARG CADDY_IMAGE=caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
-ARG GO_IMAGE=golang:1.26-alpine@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad27eb5d7236c349a0c
+ARG GO_IMAGE=golang:1.26-alpine@sha256:c95332c2af86b6d89b91bd0500f4b9529ccbd090a0d1855c6d1ceaa142ae8615
 
 # Caddy recompilé avec une chaîne Go récente et des dépendances corrigées : le binaire officiel
 # embarque des modules Go vulnérables (détectés par Trivy). Mettre à jour les versions ci-dessous
@@ -18,9 +18,9 @@ RUN if [ -n "$BUILD_CA_PEM" ]; then printf '%s\n' "$BUILD_CA_PEM" > /tmp/build-c
       && export SSL_CERT_FILE=/tmp/build-ca.pem; fi \
  && go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION} \
  && xcaddy build ${CADDY_VERSION} --output /out/caddy \
-    --replace golang.org/x/crypto=golang.org/x/crypto@v0.55.0 \
-    --replace golang.org/x/net=golang.org/x/net@v0.56.0 \
-    --replace golang.org/x/text=golang.org/x/text@v0.39.0 \
+    --replace golang.org/x/crypto=golang.org/x/crypto@v0.57.0 \
+    --replace golang.org/x/net=golang.org/x/net@v0.60.0 \
+    --replace golang.org/x/text=golang.org/x/text@v0.42.0 \
     --replace google.golang.org/grpc=google.golang.org/grpc@v1.83.2 \
  && /out/caddy version
 
