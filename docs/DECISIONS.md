@@ -727,3 +727,16 @@ lui sans modification et que chaque compte garde ses propres données.
   les pièces jointes sont rechargées, la signature n'est pas rajoutée. L'envoi passe
   `draftId` : le brouillon est supprimé après l'envoi (au mieux, un échec n'annule pas
   l'envoi) et une réponse reprise garde ses en-têtes de fil (`In-Reply-To`, `References`).
+
+### D-068 — Recherche
+
+- Recherche **côté serveur IMAP** (`SEARCH TEXT`), dans le dossier affiché (rappelé dans le champ :
+  « Rechercher dans « Archives » »). Plume n'indexe rien lui-même.
+- `SEARCH TEXT` cherche une sous-chaîne : « jean budget » ne trouvait que ces deux mots côte à côte.
+  La requête est donc découpée en termes (8 au plus), une « expression entre guillemets » restant
+  d'un seul tenant ; chaque terme restreint les résultats du précédent (tous doivent figurer).
+- Casse et accents : selon le serveur. Dovecot ignore la casse et trouve les mots accentués tapés
+  avec leurs accents ; un mot tapé sans accent (« reunion ») n'est pas garanti de trouver sa forme
+  accentuée. GreenMail (tests) ne trouve pas les mots accentués des objets encodés.
+- Le champ suit la recherche active (changement de dossier, retour arrière) et le vider rétablit
+  la liste sans attendre Entrée.

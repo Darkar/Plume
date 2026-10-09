@@ -46,6 +46,9 @@ export function MessageList(props: Props) {
   const t = useT();
   const [search, setSearch] = useState(props.query);
   const searchInput = useRef<HTMLInputElement>(null);
+  // Le champ suit la recherche active (changement de dossier, retour arrière) : jamais un texte
+  // affiché qui ne filtre pas la liste.
+  useEffect(() => setSearch(props.query), [props.query]);
   const filters: { value: ListFilter; label: string }[] = [
     { value: 'all', label: t('mail.list.filterAll') },
     { value: 'unseen', label: t('mail.list.filterUnseen') },
@@ -106,9 +109,13 @@ export function MessageList(props: Props) {
             type="search"
             value={search}
             maxLength={200}
-            placeholder={t('mail.list.searchPlaceholder')}
+            placeholder={t('mail.list.searchPlaceholder', { folder: props.title })}
             aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              // Champ vidé (touche d'effacement ou croix) : la liste complète revient.
+              if (!e.target.value && props.query) props.onSearch('');
+            }}
           />
           <kbd title={t('mail.list.searchShortcut', { keys: shortcut })}>{shortcut}</kbd>
         </form>

@@ -8,6 +8,7 @@ import {
   listFolders,
   listMessages,
   MailboxError,
+  searchTerms,
 } from '../src/mailbox.js';
 import { ImapAuthError, ImapPool } from '../src/pool.js';
 import type { ServerTarget } from '../src/server.js';
@@ -160,6 +161,21 @@ describe('liste des messages', () => {
     expect(result.messages.map((m) => m.subject)).toEqual(['Facture septembre']);
   });
 
+  it('recherche à plusieurs mots : tous doivent figurer, pas forcément côte à côte', async () => {
+    const search = async (query: string) =>
+      (
+        await listMessages(client, { folder: 'INBOX', filter: 'all', query, limit: 50 })
+      ).messages.map((m) => m.subject);
+    // Expéditeur et objet : mots non adjacents, dans n'importe quel ordre.
+    expect(await search('nimbus septembre')).toEqual(['Facture septembre']);
+    expect(await search('septembre Nimbus')).toEqual(['Facture septembre']);
+    // Un mot absent exclut le message.
+    expect(await search('facture introuvable')).toEqual([]);
+    // Expression entre guillemets : cherchée telle quelle.
+    expect(await search('"Facture septembre"')).toEqual(['Facture septembre']);
+    expect(await search('"septembre Facture"')).toEqual([]);
+  });
+
   it('refuse un curseur d’une autre UIDVALIDITY', async () => {
     await expect(
       listMessages(client, { folder: 'INBOX', filter: 'all', limit: 5, uidValidity: '1' }),
@@ -250,5 +266,15 @@ describe('ImapPool', () => {
     const pool = new ImapPool(async () => ({ target, user: USER.email, pass: 'périmé' }));
     await expect(pool.acquire('u2')).rejects.toThrow(ImapAuthError);
     await pool.close();
+  });
+});
+
+describe('searchTerms', () => {
+  it('découpe en mots et garde les expressions entre guillemets', () => {
+    expect(searchTerms('  jean   budget ')).toEqual(['jean', 'budget']);
+    expect(searchTerms('"projet Atlas" demain')).toEqual(['projet Atlas', 'demain']);
+    expect(searchTerms('"non fermé')).toEqual(['non fermé']);
+    expect(searchTerms('a a "" b')).toEqual(['a', 'b']);
+    expect(searchTerms('1 2 3 4 5 6 7 8 9 10')).toHaveLength(8);
   });
 });

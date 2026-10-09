@@ -222,6 +222,34 @@ describe('messagerie', () => {
   });
 });
 
+describe('recherche', () => {
+  const searches = () =>
+    calls
+      .filter((c) => c.url.includes('/messages?'))
+      .map((c) => new URL(c.url, 'http://x').searchParams.get('q'));
+
+  it('le champ suit la recherche active ; le vider rétablit la liste', async () => {
+    const user = userEvent.setup();
+    const router = renderApp('/?q=facture');
+    const box = (await screen.findByRole('searchbox', { name: 'Rechercher' })) as HTMLInputElement;
+    expect(box.value).toBe('facture');
+    expect(box.placeholder).toBe('Rechercher dans « Boîte de réception »');
+    await waitFor(() => expect(searches()).toContain('facture'));
+
+    // Vider le champ relance la liste complète, sans attendre Entrée.
+    await user.clear(box);
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('q'));
+
+    // Une nouvelle recherche puis un changement de dossier : le champ ne garde pas un texte
+    // qui ne filtre plus rien.
+    await user.type(box, 'budget{Enter}');
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 'budget' }));
+    await user.click(screen.getByRole('link', { name: /Archives/ }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ folder: 'Archives' }));
+    await waitFor(() => expect(box.value).toBe(''));
+  });
+});
+
 describe('actions', () => {
   it('archive avec possibilité d’annuler', async () => {
     const user = userEvent.setup();

@@ -99,7 +99,7 @@ export const en: Messages = {
   'mail.list.filterUnseen': 'Unread',
   'mail.list.filterAttachments': 'Attachments',
   'mail.list.search': 'Search',
-  'mail.list.searchPlaceholder': 'Search messages',
+  'mail.list.searchPlaceholder': 'Search in “{folder}”',
   'mail.list.empty': 'No messages.',
   'mail.list.loadMore': 'Load more',
   'mail.list.noSubject': '(no subject)',

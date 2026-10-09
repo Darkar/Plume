@@ -99,7 +99,7 @@ export const fr = {
   'mail.list.filterUnseen': 'Non lus',
   'mail.list.filterAttachments': 'Pièces jointes',
   'mail.list.search': 'Rechercher',
-  'mail.list.searchPlaceholder': 'Rechercher dans les messages',
+  'mail.list.searchPlaceholder': 'Rechercher dans « {folder} »',
   'mail.list.empty': 'Aucun message.',
   'mail.list.loadMore': 'Charger plus',
   'mail.list.noSubject': '(sans objet)',

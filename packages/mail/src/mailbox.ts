@@ -82,10 +82,10 @@ export interface ListPosition {
 export interface ListOptions {
   folder: string;
   filter: ListFilter;
+  /** Recherche : tous les mots doivent figurer (voir `searchTerms`). */
   query?: string;
   /** Libellé (mot-clé IMAP) : restreint la liste aux messages qui le portent. */
   label?: string;
-  /** UID strictement inférieur à partir duquel reprendre (pagination par curseur). */
   /** Position de la page suivante : sous ce message dans l'ordre (date décroissante, UID). */
   before?: ListPosition;
   uidValidity?: string;
@@ -120,6 +120,22 @@ const SYSTEM_FLAGS = new Set([
 ]);
 /** Nombre maximal de messages examinés par requête pour le filtre « pièces jointes ». */
 const MAX_SCAN = 500;
+/** Nombre maximal de termes de recherche (une commande SEARCH par terme). */
+const MAX_SEARCH_TERMS = 8;
+
+/**
+ * Termes d'une recherche : les mots séparés par des espaces, une « expression entre guillemets »
+ * restant d'un seul tenant. Chaque terme est cherché séparément (IMAP SEARCH TEXT cherche une
+ * sous-chaîne : « jean budget » ne trouverait que ces deux mots côte à côte).
+ */
+export function searchTerms(query: string): string[] {
+  const terms: string[] = [];
+  for (const match of query.matchAll(/"([^"]*)"?|(\S+)/g)) {
+    const term = (match[1] ?? match[2] ?? '').trim();
+    if (term && !terms.includes(term)) terms.push(term);
+  }
+  return terms.slice(0, MAX_SEARCH_TERMS);
+}
 const FETCH_QUERY = {
   uid: true,
   envelope: true,
@@ -435,9 +451,15 @@ export async function listMessages(client: ImapFlow, options: ListOptions): Prom
     const criteria: SearchObject = { all: true };
     if (options.filter === 'unseen') criteria.seen = false;
     if (options.filter === 'flagged') criteria.flagged = true;
-    if (options.query) criteria.text = options.query;
     if (options.label) criteria.keyword = options.label;
-    const found = (await client.search(criteria, { uid: true })) || [];
+    const [first, ...others] = options.query ? searchTerms(options.query) : [];
+    if (first) criteria.text = first;
+    let found = (await client.search(criteria, { uid: true })) || [];
+    // Termes suivants : chacun restreint les résultats précédents (tous les mots doivent figurer).
+    for (const term of others) {
+      if (found.length === 0) break;
+      found = (await client.search({ uid: uidSet(found), text: term }, { uid: true })) || [];
+    }
     const total = found.length;
     const dates =
       found.length > 0

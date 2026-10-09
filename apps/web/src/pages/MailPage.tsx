@@ -66,7 +66,7 @@ export function MailPage() {
         loadingMore={list.isFetchingNextPage}
         onSelect={(id) => void go({ m: id })}
         onFilter={(value) => void go({ filter: value, m: undefined })}
-        onSearch={(value) => void go({ q: value, m: undefined })}
+        onSearch={(value) => void go({ q: value || undefined, m: undefined })}
         onLoadMore={() => void list.fetchNextPage()}
         refreshing={list.isRefetching && !list.isFetchingNextPage}
         onRefresh={() => {
