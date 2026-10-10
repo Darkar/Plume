@@ -1,7 +1,11 @@
 import {
   deleteLabel,
   downloadPart,
+  getAttachments,
   getMessage,
+  invitationPart,
+  MAX_INVITATION_BYTES,
+  parseInvitation,
   htmlToText,
   ImapAuthError,
   ImapUnavailableError,
@@ -132,6 +136,8 @@ function detailView(detail: MessageDetail) {
     messageId: detail.messageId,
     inReplyTo: detail.inReplyTo,
     attachments: detail.attachments.map((a) => attachmentView(detail.ref, a)),
+    /** Le message porte une invitation (carte affichée, voir GET /messages/:id/invitation). */
+    invitation: invitationPart(detail.attachments) !== null,
   };
 }
 
@@ -265,6 +271,28 @@ export async function mailRoutes(app: FastifyInstance) {
         ? sanitizeOutgoingHtml(content.html)
         : escapeHtml(content.text ?? '').replace(/\r?\n/g, '<br>');
     return { html };
+  });
+
+  /**
+   * Invitation (iCalendar) portée par le message, analysée côté serveur : données structurées en
+   * texte brut, jamais le fichier lui-même. `me` : participation du compte connecté.
+   */
+  app.get('/messages/:id/invitation', auth, async (request) => {
+    const session = request.session as SessionData;
+    const ref = messageRef(request);
+    const ics = await withMailbox(session.userId, async (client) => {
+      const part = invitationPart(await getAttachments(client, ref));
+      if (!part) throw notFound();
+      return (await downloadPart(client, ref, part.part, MAX_INVITATION_BYTES)).content;
+    });
+    const invitation = parseInvitation(ics.toString('utf8'));
+    if (!invitation) throw notFound();
+    const email = session.email.toLowerCase();
+    return {
+      ...invitation,
+      me: invitation.attendees.find((a) => a.email === email) ?? null,
+      organizerIsMe: invitation.organizer?.email === email,
+    };
   });
 
   /** Texte brut du message, pour la citation dans une réponse ou un transfert. */

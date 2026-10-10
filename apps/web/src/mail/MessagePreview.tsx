@@ -16,6 +16,7 @@ import { useT } from '../i18n';
 import { displayName, formatFullDate, formatSize } from './format';
 import { Icon } from './Icon';
 import { AttachmentPreview } from './AttachmentPreview';
+import { InvitationCard } from './InvitationCard';
 import { startMessageDrag } from './drag';
 import { MessageActions, MessageLabels } from './MessageActions';
 import styles from './MailPage.module.css';
@@ -170,6 +171,8 @@ export function MessagePreview({
             </Button>
           </div>
         ) : null}
+
+        {data.invitation ? <InvitationCard message={data} /> : null}
 
         <MailBody
           key={`${id}:${showImages}:${theme}`}

@@ -1411,6 +1411,120 @@
         ]
       }
     },
+    "/messages/{id}/invitation": {
+      "get": {
+        "operationId": "getMessagesIdInvitation",
+        "summary": "Invitation (iCalendar) portée par le message, analysée",
+        "tags": [
+          "mail"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 1500,
+              "description": "Identifiant opaque de message"
+            }
+          }
+        ]
+      }
+    },
+    "/messages/{id}/invitation/reply": {
+      "post": {
+        "operationId": "postMessagesIdInvitationReply",
+        "summary": "Répond à une invitation (iMIP) : accepter, peut-être ou refuser",
+        "tags": [
+          "mail"
+        ],
+        "security": [
+          {
+            "session": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Succès",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 1500,
+              "description": "Identifiant opaque de message"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "accepted",
+                      "tentative",
+                      "declined"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/messages/{id}/quote": {
       "get": {
         "operationId": "getMessagesIdQuote",

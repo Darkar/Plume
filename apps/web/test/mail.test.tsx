@@ -52,11 +52,30 @@ function json(status: number, body?: unknown) {
 
 const calls: { url: string; method: string; body: unknown }[] = [];
 let detailOverride: Record<string, unknown> = {};
+let invitationOverride: Record<string, unknown> = {};
+
+const invitation = {
+  method: 'REQUEST',
+  summary: 'Point projet <b>gras</b>',
+  location: 'Salle 3',
+  description: '<img src=x onerror=alert(1)>Ordre du jour',
+  start: { kind: 'utc', value: '2026-10-15T12:00:00.000Z' },
+  end: { kind: 'utc', value: '2026-10-15T13:00:00.000Z' },
+  recurring: true,
+  occurrence: false,
+  cancelled: false,
+  organizer: { name: 'Nimbus', email: 'factures@nimbus.example' },
+  attendees: [{ name: 'Sacha', email: 'sacha@exemple.com', status: 'needs-action' }],
+  attendeeCount: 1,
+  me: { name: 'Sacha', email: 'sacha@exemple.com', status: 'needs-action' },
+  organizerIsMe: false,
+};
 
 beforeEach(() => {
   setCsrfToken(null);
   calls.length = 0;
   detailOverride = {};
+  invitationOverride = {};
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
@@ -65,6 +84,10 @@ beforeEach(() => {
         method: init.method ?? 'GET',
         body: init.body ? JSON.parse(String(init.body)) : null,
       });
+      if (url.endsWith('/invitation/reply')) {
+        return json(200, { status: (JSON.parse(String(init.body)) as { status: string }).status });
+      }
+      if (url.endsWith('/invitation')) return json(200, { ...invitation, ...invitationOverride });
       if (url.endsWith('/messages/drafts')) return json(200, { id: 'YnJvdWlsbG9u' });
       if (url.endsWith('/draft')) return json(200, { html: '<p>Corps du brouillon</p>' });
       if (url.endsWith('/junk')) return json(200, { id: 'c3BhbQ', folder: 'Junk', from: 'INBOX' });
@@ -247,6 +270,58 @@ describe('recherche', () => {
     await user.click(screen.getByRole('link', { name: /Archives/ }));
     await waitFor(() => expect(router.state.location.search).toMatchObject({ folder: 'Archives' }));
     await waitFor(() => expect(box.value).toBe(''));
+  });
+});
+
+describe('invitations', () => {
+  it('affiche l’événement en texte et répond à l’organisateur', async () => {
+    detailOverride = { invitation: true };
+    const user = userEvent.setup();
+    renderApp('/?m=bWVzc2FnZS0x');
+    const card = await screen.findByRole('region', { name: 'Point projet <b>gras</b>' });
+    // Aucun HTML de l'invitation n'est interprété.
+    expect(card.querySelector('b, img')).toBeNull();
+    expect(within(card).getByText('Salle 3')).toBeTruthy();
+    expect(within(card).getByText('Événement récurrent')).toBeTruthy();
+    expect(within(card).getByText(/jeudi 15 octobre 2026/)).toBeTruthy();
+    expect(within(card).getByText('<img src=x onerror=alert(1)>Ordre du jour')).toBeTruthy();
+    // Organisateur = expéditeur : pas d'avertissement.
+    expect(within(card).queryByRole('note')).toBeNull();
+
+    const yes = within(card).getByRole('button', { name: 'Oui' });
+    expect(yes.getAttribute('aria-pressed')).toBe('false');
+    await user.click(yes);
+    expect(await screen.findByText('Réponse envoyée à Nimbus.')).toBeTruthy();
+    expect(calls.find((c) => c.url.endsWith('/invitation/reply'))?.body).toEqual({
+      status: 'accepted',
+    });
+    await waitFor(() =>
+      expect(within(card).getByRole('button', { name: 'Oui' }).getAttribute('aria-pressed')).toBe(
+        'true',
+      ),
+    );
+  });
+
+  it('avertit si l’organisateur n’est pas l’expéditeur ; pas de réponse à une annulation', async () => {
+    detailOverride = { invitation: true };
+    invitationOverride = { organizer: { name: 'Banque', email: 'support@banque.example' } };
+    renderApp('/?m=bWVzc2FnZS0x');
+    const card = await screen.findByRole('region', { name: 'Point projet <b>gras</b>' });
+    expect(within(card).getByRole('note').textContent).toContain('support@banque.example');
+    cleanup();
+
+    invitationOverride = { method: 'CANCEL', cancelled: true };
+    renderApp('/?m=bWVzc2FnZS0x');
+    const cancelled = await screen.findByRole('region', { name: 'Point projet <b>gras</b>' });
+    expect(within(cancelled).getByText('L’organisateur a annulé cet événement.')).toBeTruthy();
+    expect(within(cancelled).queryByRole('button', { name: 'Oui' })).toBeNull();
+  });
+
+  it('sans invitation, aucune carte ni requête', async () => {
+    renderApp('/?m=bWVzc2FnZS0x');
+    await screen.findByTitle('Contenu du message');
+    expect(screen.queryByRole('region', { name: /Point projet/ })).toBeNull();
+    expect(calls.some((c) => c.url.endsWith('/invitation'))).toBe(false);
   });
 });
 

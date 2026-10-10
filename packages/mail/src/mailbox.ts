@@ -57,6 +57,8 @@ export interface MessageSummary {
   draft: boolean;
   keywords: string[];
   hasAttachments: boolean;
+  /** Réponse déjà donnée depuis Plume à l'invitation que porte ce message. */
+  invitationResponse: 'accepted' | 'tentative' | 'declined' | null;
 }
 
 export interface MessageDetail extends MessageSummary {
@@ -118,6 +120,20 @@ const SYSTEM_FLAGS = new Set([
   '\\draft',
   '\\recent',
 ]);
+
+/** Mots-clés IMAP mémorisant la réponse donnée à une invitation (jamais montrés comme libellés). */
+export const INVITATION_RESPONSE_KEYWORDS = {
+  accepted: '$PlumeAccepted',
+  tentative: '$PlumeTentative',
+  declined: '$PlumeDeclined',
+} as const;
+
+function responseOf(lowerFlags: Set<string>): MessageSummary['invitationResponse'] {
+  for (const [status, keyword] of Object.entries(INVITATION_RESPONSE_KEYWORDS)) {
+    if (lowerFlags.has(keyword.toLowerCase())) return status as 'accepted';
+  }
+  return null;
+}
 /** Nombre maximal de messages examinés par requête pour le filtre « pièces jointes ». */
 const MAX_SCAN = 500;
 /** Nombre maximal de termes de recherche (une commande SEARCH par terme). */
@@ -294,7 +310,13 @@ export function analyzeStructure(root: MessageStructureObject | undefined): {
     if (type.startsWith('multipart/')) return;
     attachments.push({
       part,
-      filename: filename || (type === 'message/rfc822' ? 'message.eml' : 'piece-jointe'),
+      filename:
+        filename ||
+        (type === 'message/rfc822'
+          ? 'message.eml'
+          : type === 'text/calendar'
+            ? 'invitation.ics'
+            : 'piece-jointe'),
       contentType: type || 'application/octet-stream',
       size: node.size ?? 0,
       contentId: node.id ? node.id.replace(/^<|>$/g, '') : null,
@@ -322,7 +344,10 @@ function summarize(folder: string, uidValidity: string, msg: FetchMessageObject)
     flagged: lower.has('\\flagged'),
     answered: lower.has('\\answered'),
     draft: lower.has('\\draft'),
-    keywords: flags.filter((f) => !SYSTEM_FLAGS.has(f.toLowerCase()) && !f.startsWith('\\')),
+    // Libellés seulement : les mots-clés techniques ($Forwarded, $MDNSent, réponse à une
+    // invitation…) ne sont pas des libellés.
+    keywords: flags.filter((f) => !SYSTEM_FLAGS.has(f.toLowerCase()) && isValidLabel(f)),
+    invitationResponse: responseOf(lower),
     hasAttachments: attachments.some((a) => !a.inline),
   };
 }

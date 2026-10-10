@@ -1,4 +1,4 @@
-import type { Address } from '../api/mail';
+import type { Address, InvitationTime } from '../api/mail';
 import { getLocale } from '../i18n';
 
 const TAGS = { fr: 'fr-FR', en: 'en-GB' } as const;
@@ -35,6 +35,53 @@ export function formatFullDate(iso: string | null): string {
   if (!iso) return '';
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? '' : fullFormat().format(date);
+}
+
+const eventDayFormat = () =>
+  dateFormat('eventDay', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+/** Horodatage d'un événement en date locale (heure « flottante » et journée : sans conversion). */
+function eventDate(time: InvitationTime): Date | null {
+  if (time.kind === 'utc') {
+    const date = new Date(time.value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const [datePart = '', timePart = '00:00:00'] = time.value.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [h, mi, sec] = timePart.split(':').map(Number);
+  const parts = [y, m, d, h, mi, sec];
+  if (parts.length !== 6 || !parts.every((n) => Number.isInteger(n))) return null;
+  const date = new Date(y as number, (m as number) - 1, d, h, mi, sec);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Période d'un événement, dans le fuseau du navigateur : « jeudi 15 octobre 2026, 14:00 – 15:00 ».
+ * Journée entière : la fin iCalendar est exclusive (lendemain du dernier jour).
+ */
+export function formatEventRange(
+  start: InvitationTime | null,
+  end: InvitationTime | null,
+): { text: string; allDay: boolean } | null {
+  const from = start ? eventDate(start) : null;
+  if (!start || !from) return null;
+  const day = eventDayFormat();
+  const to = end ? eventDate(end) : null;
+  if (start.kind === 'date') {
+    const last = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate() - 1) : from;
+    const text =
+      last > from && last.toDateString() !== from.toDateString()
+        ? `${day.format(from)} – ${day.format(last)}`
+        : day.format(from);
+    return { text, allDay: true };
+  }
+  const time = timeFormat();
+  if (!to) return { text: `${day.format(from)}, ${time.format(from)}`, allDay: false };
+  const text =
+    to.toDateString() === from.toDateString()
+      ? `${day.format(from)}, ${time.format(from)} – ${time.format(to)}`
+      : `${day.format(from)}, ${time.format(from)} – ${day.format(to)}, ${time.format(to)}`;
+  return { text, allDay: false };
 }
 
 export function formatSize(bytes: number): string {

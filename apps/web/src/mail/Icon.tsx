@@ -52,6 +52,9 @@ import {
   User,
   X,
   type LucideIcon,
+  CalendarDays,
+  MapPin,
+  Repeat,
 } from 'lucide-react';
 
 /** Icônes (SVG en ligne, décoratives : le libellé accessible est porté par le contrôle). */
@@ -109,6 +112,9 @@ const ICONS = {
   userPlus: UserPlus,
   users: Users,
   menu: Menu,
+  calendar: CalendarDays,
+  mapPin: MapPin,
+  repeat: Repeat,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

@@ -50,6 +50,9 @@ exécuté côté serveur.
   secondes.
 - **Rédaction** : éditeur riche, réponse / réponse à tous / transfert avec citation, signature,
   pièces jointes, fenêtre agrandissable, brouillons (proposés à la fermeture, repris ensuite).
+- **Invitations** : les invitations d'agenda reçues (Google, Outlook…) s'affichent comme une
+  carte (date, lieu, organisateur, participants) avec réponse Oui / Peut-être / Non envoyée à
+  l'organisateur, et l'ajout à son agenda (`.ics`).
 - **Comptes** : plusieurs comptes dans la même session avec bascule, second facteur TOTP
   (facultatif ou obligatoire), codes de secours, déconnexion de tous les appareils.
 - **Règles** : trier, libeller, transférer, répondre automatiquement — exécutées par le serveur

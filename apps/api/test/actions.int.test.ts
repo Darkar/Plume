@@ -468,6 +468,138 @@ describe('brouillons', () => {
   });
 });
 
+/** Message d'invitation (multipart/alternative avec partie text/calendar), source brute. */
+function invitationMessage(subject: string, ics: string[]): string {
+  const calendar = ics.join('\r\n') + '\r\n';
+  return [
+    'From: Alice <alice@exemple.com>',
+    'To: sacha@exemple.com',
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/alternative; boundary="b1"',
+    '',
+    '--b1',
+    'Content-Type: text/plain; charset=utf-8',
+    '',
+    'Invitation',
+    '--b1',
+    'Content-Type: text/calendar; charset=utf-8; method=REQUEST',
+    '',
+    calendar,
+    '--b1--',
+    '',
+  ].join('\r\n');
+}
+
+const EVENT = (method: string, organizer: string, uid: string) => [
+  'BEGIN:VCALENDAR',
+  'VERSION:2.0',
+  `METHOD:${method}`,
+  'BEGIN:VEVENT',
+  `UID:${uid}`,
+  'SEQUENCE:1',
+  'DTSTAMP:20261001T080000Z',
+  'DTSTART:20261015T120000Z',
+  'DTEND:20261015T130000Z',
+  'SUMMARY:Point projet',
+  'DESCRIPTION:<b>Ordre du jour</b>',
+  `ORGANIZER;CN=Alice:mailto:${organizer}`,
+  'ATTENDEE;PARTSTAT=NEEDS-ACTION;CN=Sacha:mailto:sacha@exemple.com',
+  'END:VEVENT',
+  'END:VCALENDAR',
+];
+
+describe('invitations', () => {
+  beforeAll(async () => {
+    await seedMailbox(gm, SACHA, [
+      {
+        raw: invitationMessage('Invitation projet', EVENT('REQUEST', 'alice@exemple.com', 'inv-1')),
+      },
+      {
+        raw: invitationMessage('Invitation annulee', EVENT('CANCEL', 'alice@exemple.com', 'inv-2')),
+      },
+      { raw: invitationMessage('Mon invitation', EVENT('REQUEST', 'sacha@exemple.com', 'inv-3')) },
+    ]);
+  });
+
+  it('expose l’invitation analysée, en texte brut', async () => {
+    const message = await find(sacha, 'Invitation projet');
+    const detail = await sacha.request('GET', `/api/v1/messages/${message?.id}`);
+    expect(detail.json()).toMatchObject({ invitation: true, invitationResponse: null });
+    const res = await sacha.request('GET', `/api/v1/messages/${message?.id}/invitation`);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      method: 'REQUEST',
+      summary: 'Point projet',
+      description: '<b>Ordre du jour</b>',
+      start: { kind: 'utc', value: '2026-10-15T12:00:00.000Z' },
+      organizer: { name: 'Alice', email: 'alice@exemple.com' },
+      me: { email: 'sacha@exemple.com', status: 'needs-action' },
+      organizerIsMe: false,
+    });
+
+    const plain = await find(sacha, 'Premier');
+    expect((await sacha.request('GET', `/api/v1/messages/${plain?.id}`)).json().invitation).toBe(
+      false,
+    );
+    expect(
+      (await sacha.request('GET', `/api/v1/messages/${plain?.id}/invitation`)).statusCode,
+    ).toBe(404);
+    // Identifiant d'un autre compte : jamais lu sur ce compte.
+    expect(
+      (await alice.request('GET', `/api/v1/messages/${message?.id}/invitation`)).statusCode,
+    ).toBe(404);
+  });
+
+  it('répond à l’organisateur (iMIP) et mémorise la réponse', async () => {
+    const message = await find(sacha, 'Invitation projet');
+    const res = await sacha.request('POST', `/api/v1/messages/${message?.id}/invitation/reply`, {
+      status: 'accepted',
+    });
+    expect(res.statusCode).toBe(200);
+
+    const received = await latestSource(ALICE, 'METHOD:REPLY');
+    expect(received).toContain('Subject: =?UTF-8?Q?Accept=C3=A9_=3A_Point_projet?=');
+    expect(received).toMatch(/Content-Type: text\/calendar; charset=utf-8; method=REPLY/i);
+    expect(received).toContain('UID:inv-1');
+    expect(received).toContain('PARTSTAT=ACCEPTED');
+    // Rien de l'invitation reçue n'est renvoyé hormis l'essentiel.
+    expect(received).not.toContain('Ordre du jour');
+
+    const after = await find(sacha, 'Invitation projet');
+    expect(after?.keywords).toEqual([]);
+    const detail = await sacha.request('GET', `/api/v1/messages/${message?.id}`);
+    expect(detail.json().invitationResponse).toBe('accepted');
+
+    // Changer d'avis remplace la réponse mémorisée.
+    await sacha.request('POST', `/api/v1/messages/${message?.id}/invitation/reply`, {
+      status: 'declined',
+    });
+    const changed = await sacha.request('GET', `/api/v1/messages/${message?.id}`);
+    expect(changed.json().invitationResponse).toBe('declined');
+  });
+
+  it('refuse une réponse invalide, une annulation et sa propre invitation', async () => {
+    const message = await find(sacha, 'Invitation projet');
+    const reply = (id: string | undefined, body: unknown) =>
+      sacha.request('POST', `/api/v1/messages/${id}/invitation/reply`, body);
+    expect((await reply(message?.id, { status: 'maybe' })).statusCode).toBe(400);
+    expect(
+      (await reply(message?.id, { status: 'accepted', to: 'x@evil.example' })).statusCode,
+    ).toBe(400);
+    const cancelled = await find(sacha, 'Invitation annulee');
+    const res = await reply(cancelled?.id, { status: 'accepted' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('invalid_invitation');
+    const mine = await find(sacha, 'Mon invitation');
+    const own = await reply(mine?.id, { status: 'accepted' });
+    expect(own.statusCode).toBe(400);
+    expect(own.json().error).toBe('own_invitation');
+    const plain = await find(sacha, 'Premier');
+    expect((await reply(plain?.id, { status: 'accepted' })).statusCode).toBe(404);
+  });
+});
+
 describe('préférences', () => {
   it('renvoie les valeurs par défaut puis enregistre une signature nettoyée', async () => {
     expect((await sacha.request('GET', '/api/v1/me/preferences')).json()).toMatchObject({

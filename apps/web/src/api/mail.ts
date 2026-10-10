@@ -29,6 +29,8 @@ export interface MessageSummary {
   draft?: boolean;
   keywords: string[];
   hasAttachments: boolean;
+  /** Réponse déjà donnée depuis Plume à l'invitation portée par le message. */
+  invitationResponse?: InvitationReply | null;
 }
 
 export interface Attachment {
@@ -49,6 +51,40 @@ export interface MessageDetail extends MessageSummary {
   attachments: Attachment[];
   remoteImagesPolicy: 'block_by_default' | 'allow';
   blockedRemoteImages: number;
+  /** Le message porte une invitation (iCalendar). */
+  invitation?: boolean;
+}
+
+export type InvitationReply = 'accepted' | 'tentative' | 'declined';
+export type ParticipationStatus = InvitationReply | 'needs-action' | 'delegated';
+
+/** Instant UTC (ISO), journée entière (AAAA-MM-JJ) ou heure locale sans fuseau. */
+export interface InvitationTime {
+  kind: 'utc' | 'date' | 'floating';
+  value: string;
+}
+
+export interface CalendarAddress {
+  name: string;
+  email: string;
+}
+
+export interface Invitation {
+  method: 'REQUEST' | 'CANCEL' | 'REPLY' | 'PUBLISH' | 'OTHER';
+  summary: string;
+  location: string;
+  description: string;
+  start: InvitationTime | null;
+  end: InvitationTime | null;
+  recurring: boolean;
+  occurrence: boolean;
+  cancelled: boolean;
+  organizer: CalendarAddress | null;
+  attendees: (CalendarAddress & { status: ParticipationStatus })[];
+  attendeeCount: number;
+  /** Participation du compte connecté, s'il figure parmi les invités. */
+  me: (CalendarAddress & { status: ParticipationStatus }) | null;
+  organizerIsMe: boolean;
 }
 
 export type ListFilter = 'all' | 'unseen' | 'flagged' | 'attachments';
@@ -64,6 +100,7 @@ export const mailKeys = {
   messages: (folder: string, filter: ListFilter, q: string, label: string) =>
     ['messages', folder, filter, q, label] as const,
   message: (id: string) => ['message', id] as const,
+  invitation: (id: string) => ['invitation', id] as const,
   labels: ['labels'] as const,
   snoozes: ['snoozes'] as const,
 };
@@ -135,6 +172,14 @@ export interface OutgoingMessage {
   /** Brouillon d'origine : supprimé une fois le message envoyé. */
   draftId?: string;
 }
+
+export const fetchInvitation = (id: string) =>
+  api<Invitation>('GET', `/messages/${encodeURIComponent(id)}/invitation`);
+
+export const replyToInvitation = (id: string, status: InvitationReply) =>
+  api<{ status: InvitationReply }>('POST', `/messages/${encodeURIComponent(id)}/invitation/reply`, {
+    status,
+  });
 
 export const sendMessage = (message: OutgoingMessage) =>
   api<{ status: 'sent' }>('POST', '/messages/send', message);

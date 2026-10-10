@@ -152,6 +152,8 @@ export interface OutgoingMessage {
   attachments: OutgoingAttachment[];
   /** Brouillon : la copie cachée est conservée dans l'en-tête (le message n'est pas envoyé). */
   keepBcc?: boolean;
+  /** Partie iCalendar (réponse à une invitation, RFC 6047) jointe en alternative text/calendar. */
+  calendar?: { method: 'REPLY'; content: string };
   /** Marqueurs internes (moteur de règles) : jamais exposés à l'API. */
   automatic?: 'auto-replied' | 'forwarded' | 'digest';
 }
@@ -172,6 +174,9 @@ export async function buildMime(message: OutgoingMessage): Promise<Buffer> {
     text: htmlToText(html),
     inReplyTo: message.inReplyTo,
     references: message.references,
+    ...(message.calendar
+      ? { icalEvent: { method: message.calendar.method, content: message.calendar.content } }
+      : {}),
     attachments: message.attachments.map((a) => ({
       filename: headerSafe(a.filename, 150) || 'piece-jointe',
       contentType: /^[a-z]+\/[a-z0-9.+-]+$/i.test(a.contentType)

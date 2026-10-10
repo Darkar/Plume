@@ -3,7 +3,13 @@ import {
   appendSent,
   archiveMessage,
   junkMessage,
+  buildInvitationReply,
   buildMime,
+  downloadPart,
+  escapeHtml,
+  getAttachments,
+  invitationPart,
+  MAX_INVITATION_BYTES,
   deleteDraft,
   deleteMessage,
   getMessage,
@@ -12,6 +18,7 @@ import {
   moveMessage,
   saveDraft,
   sendRaw,
+  setInvitationResponse,
   snoozeMessage,
   wakeMessage,
   updateFlags,
@@ -90,6 +97,28 @@ export const sendBody = z.strictObject({
   draftId: z.string().max(1500).optional(),
 });
 
+export const invitationReplyBody = z.strictObject({
+  status: z.enum(['accepted', 'tentative', 'declined']),
+});
+
+/** Objet et texte de la réponse à une invitation, dans la langue de l'utilisateur. */
+const INVITATION_REPLY_TEXT = {
+  fr: {
+    accepted: ['Accepté', 'a accepté'],
+    tentative: ['Provisoire', 'a répondu « peut-être » à'],
+    declined: ['Refusé', 'a refusé'],
+    invitation: 'l’invitation',
+    quote: (title: string) => `« ${title} »`,
+  },
+  en: {
+    accepted: ['Accepted', 'has accepted'],
+    tentative: ['Tentative', 'has tentatively accepted'],
+    declined: ['Declined', 'has declined'],
+    invitation: 'the invitation',
+    quote: (title: string) => `“${title}”`,
+  },
+} as const;
+
 /** Brouillon : même contenu qu'un envoi (destinataires facultatifs), et le brouillon remplacé. */
 export const draftBody = sendBody.omit({ draftId: true }).extend({
   replaces: z.string().max(1500).optional(),
@@ -134,6 +163,35 @@ export async function actionRoutes(app: FastifyInstance) {
       throw new HttpError(413, 'attachments_too_large');
     }
     return attachments;
+  }
+
+  /** Échec d'un envoi SMTP traduit en erreur HTTP (même logique pour toutes les routes d'envoi). */
+  function sendFailure(
+    request: FastifyRequest,
+    userId: string,
+    relay: boolean,
+    error: unknown,
+  ): never {
+    if (error instanceof HttpError) throw error;
+    if (error instanceof ConfigError) {
+      // Secret du relais SMTP du domaine illisible : erreur d'exploitation.
+      request.log.error({ err: error }, 'secret du relais SMTP illisible');
+      throw new HttpError(503, 'smtp_unavailable');
+    }
+    const err = error as { code?: string; responseCode?: number };
+    if (err.code === 'EAUTH') {
+      // Relais commun refusé : identifiants de l'administrateur, pas ceux de l'utilisateur.
+      if (!relay) throw new HttpError(401, 'smtp_auth_failed');
+      request.log.error('authentification refusée par le relais SMTP du domaine');
+      throw new HttpError(503, 'smtp_unavailable');
+    }
+    if (err.code === 'EENVELOPE' || (err.responseCode !== undefined && err.responseCode >= 500)) {
+      throw new HttpError(422, 'recipient_rejected');
+    }
+    if (err.code && ['ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ETLS'].includes(err.code)) {
+      throw new HttpError(503, 'smtp_unavailable');
+    }
+    return mapMailError(services, userId, error) as never;
   }
 
   /** Taille maximale du JSON d'un envoi ou d'un brouillon (pièces jointes en base64, +33 %). */
@@ -407,35 +465,74 @@ export async function actionRoutes(app: FastifyInstance) {
         }
         return { status: 'sent' };
       } catch (error) {
-        if (error instanceof HttpError) throw error;
-        if (error instanceof ConfigError) {
-          // Secret du relais SMTP du domaine illisible : erreur d'exploitation.
-          request.log.error({ err: error }, 'secret du relais SMTP illisible');
-          throw new HttpError(503, 'smtp_unavailable');
-        }
-        const err = error as { code?: string; responseCode?: number };
-        if (err.code === 'EAUTH') {
-          // Relais commun refusé : identifiants de l'administrateur, pas ceux de l'utilisateur.
-          if (!relay) throw new HttpError(401, 'smtp_auth_failed');
-          request.log.error('authentification refusée par le relais SMTP du domaine');
-          throw new HttpError(503, 'smtp_unavailable');
-        }
-        if (
-          err.code === 'EENVELOPE' ||
-          (err.responseCode !== undefined && err.responseCode >= 500)
-        ) {
-          throw new HttpError(422, 'recipient_rejected');
-        }
-        if (
-          err.code &&
-          ['ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ETLS'].includes(err.code)
-        ) {
-          throw new HttpError(503, 'smtp_unavailable');
-        }
-        return mapMailError(services, session.userId, error);
+        return sendFailure(request, session.userId, relay, error);
       }
     },
   );
+
+  /**
+   * Réponse à une invitation (iMIP) : l'invitation est relue sur le serveur IMAP (rien n'est
+   * repris du client hormis la réponse choisie), la réponse part vers l'organisateur indiqué
+   * dans l'invitation. Elle n'est pas copiée dans « Envoyés » (comme dans les autres webmails).
+   */
+  app.post('/messages/:id/invitation/reply', auth, async (request) => {
+    const session = request.session as SessionData;
+    const ref = refOf(request);
+    const parsed = invitationReplyBody.safeParse(request.body);
+    if (!parsed.success) throw badRequest();
+    const { status } = parsed.data;
+    if (await services.limiter.hit('send', session.userId, SEND_LIMIT.max, SEND_LIMIT.windowMs)) {
+      throw new HttpError(429, 'rate_limited');
+    }
+    const ics = await withClient(session.userId, async (client) => {
+      const part = invitationPart(await getAttachments(client, ref));
+      if (!part) throw notFound();
+      return (await downloadPart(client, ref, part.part, MAX_INVITATION_BYTES)).content;
+    });
+
+    let relay = false;
+    try {
+      const smtp = await services.mail.smtpCredentials(session.userId);
+      relay = smtp.relay;
+      const prefs = await services.preferences.get(session.userId);
+      const name = prefs.displayName ?? '';
+      const reply = buildInvitationReply(ics.toString('utf8'), { name, email: smtp.from }, status);
+      if (!reply) throw badRequest('invalid_invitation');
+      if (reply.organizer.email === smtp.from.toLowerCase()) throw badRequest('own_invitation');
+
+      const accept = String(request.headers['accept-language'] ?? '');
+      const lang =
+        prefs.language === 'en' || (prefs.language === 'auto' && /^en\b/i.test(accept))
+          ? 'en'
+          : 'fr';
+      const text = INVITATION_REPLY_TEXT[lang];
+      const [subjectPrefix, verb] = text[status];
+      const raw = await buildMime({
+        from: { name, address: smtp.from },
+        to: [{ name: reply.organizer.name, address: reply.organizer.email }],
+        cc: [],
+        bcc: [],
+        subject: reply.summary ? `${subjectPrefix} : ${reply.summary}` : subjectPrefix,
+        html: `<p>${escapeHtml(name || smtp.from)} ${verb} ${
+          reply.summary
+            ? `${text.invitation} ${escapeHtml(text.quote(reply.summary))}`
+            : text.invitation
+        }.</p>`,
+        attachments: [],
+        calendar: { method: 'REPLY', content: reply.content },
+      });
+      await sendRaw(smtp, { from: smtp.from, to: [reply.organizer.email] }, raw);
+    } catch (error) {
+      return sendFailure(request, session.userId, relay, error);
+    }
+    // Réponse mémorisée sur le message : sans effet sur l'envoi en cas d'échec.
+    try {
+      await setInvitationResponse(await services.mail.pool.acquire(session.userId), ref, status);
+    } catch (error) {
+      request.log.warn({ err: error }, 'réponse à l’invitation non mémorisée');
+    }
+    return { status };
+  });
 
   /** Préférences, avec les limites utiles au composeur (même forme pour GET et PATCH). */
   const preferencesView = async (userId: string) => {

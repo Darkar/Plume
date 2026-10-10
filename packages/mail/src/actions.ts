@@ -1,5 +1,6 @@
 import type { ImapFlow } from 'imapflow';
 import {
+  INVITATION_RESPONSE_KEYWORDS,
   isValidLabel,
   listFolders,
   MailboxError,
@@ -70,6 +71,21 @@ export async function updateFlags(
     const uid = String(ref.uid);
     if (add.length > 0) await client.messageFlagsAdd(uid, add, { uid: true });
     if (remove.length > 0) await client.messageFlagsRemove(uid, remove, { uid: true });
+  });
+}
+
+/** Mémorise la réponse donnée à une invitation (mot-clé IMAP, la précédente est retirée). */
+export async function setInvitationResponse(
+  client: ImapFlow,
+  ref: MessageRef,
+  status: keyof typeof INVITATION_RESPONSE_KEYWORDS,
+): Promise<void> {
+  const keyword = INVITATION_RESPONSE_KEYWORDS[status];
+  const others = Object.values(INVITATION_RESPONSE_KEYWORDS).filter((k) => k !== keyword);
+  await withWriteLock(client, ref, async () => {
+    const uid = String(ref.uid);
+    await client.messageFlagsRemove(uid, others, { uid: true });
+    await client.messageFlagsAdd(uid, [keyword], { uid: true });
   });
 }
 

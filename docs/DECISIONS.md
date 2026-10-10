@@ -740,3 +740,23 @@ lui sans modification et que chaque compte garde ses propres données.
   accentuée. GreenMail (tests) ne trouve pas les mots accentués des objets encodés.
 - Le champ suit la recherche active (changement de dossier, retour arrière) et le vider rétablit
   la liste sans attendre Entrée.
+
+### D-069 — Invitations d'agenda (iCalendar / iMIP)
+
+- Pas d'agenda dans Plume (ni stockage d'événements, ni serveur CalDAV) : Plume reste un client.
+  Les invitations reçues par courriel sont en revanche lues et peuvent recevoir une réponse,
+  comme dans les principaux webmails. Un client CalDAV pourra venir ensuite, sur le même modèle
+  qu'IMAP (serveur fixé par domaine dans la configuration).
+- Partie `text/calendar` (ou fichier `.ics`) analysée **côté serveur** avec ical.js (MPL-2.0,
+  sans dépendance), au plus 256 Kio ; seules des données structurées en texte brut sont
+  exposées (`GET /messages/:id/invitation`). Les heures sont converties en UTC à l'aide des
+  VTIMEZONE du fichier (noms Windows d'Outlook compris), à défaut du fuseau IANA ; sinon
+  l'heure est affichée telle quelle.
+- Réponse (`POST /messages/:id/invitation/reply`, Oui / Peut-être / Non) : l'invitation est
+  relue sur le serveur IMAP, seul le choix vient du client. Réponse iMIP minimale
+  (`METHOD:REPLY` : UID, séquence, occurrence, organisateur, participant) envoyée uniquement à
+  l'organisateur, soumise à la limite d'envoi, non copiée dans « Envoyés ». Refusée pour une
+  annulation, une simple publication ou sa propre invitation.
+- Avertissement si l'organisateur n'est pas l'expéditeur du message (invitation transférée…
+  ou usurpée). La réponse donnée est mémorisée par un mot-clé IMAP (`$PlumeAccepted`…) ; les
+  mots-clés commençant par `$` ne sont plus affichés comme libellés.

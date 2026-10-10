@@ -5,5 +5,6 @@ export * from './safe-fetch.js';
 export * from './sanitize.js';
 export * from './server.js';
 export * from './actions.js';
+export * from './calendar.js';
 export * from './compose.js';
 export * from './rules-runtime.js';
